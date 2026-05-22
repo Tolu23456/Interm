@@ -1,0 +1,381 @@
+SUBSYSTEM: TEXT BUFFER ENGINE
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core implementation)
+ROLE: Core text storage + editing system
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design and implement the core text buffer engine for INTERM.
+
+This is the HEART of the editor.
+
+It must handle:
+- all text storage
+- all editing operations
+- undo/redo system
+- multicursor edits
+- large file support
+- incremental modifications
+- efficient memory usage
+
+Everything in the editor depends on this system being correct and fast.
+
+============================================================
+CORE DESIGN REQUIREMENT
+============================================================
+
+The buffer system must support:
+
+- extremely fast insertions
+- extremely fast deletions
+- efficient mid-file edits
+- minimal memory overhead
+- predictable performance
+- scalable file sizes (GB-level files)
+
+The system must NOT degrade linearly in common editing operations.
+
+============================================================
+RECOMMENDED INTERNAL STRUCTURE (REQUIRED DISCUSSION)
+============================================================
+
+You must evaluate and choose (or hybridize):
+
+1. Rope
+2. Piece Table
+3. Gap Buffer
+4. Hybrid Rope + Piece Table
+
+You MUST justify:
+- insertion performance
+- deletion performance
+- memory usage
+- cache locality
+- undo integration complexity
+- multicursor performance
+
+The final design MUST prioritize:
+- real-world editing performance
+- not theoretical simplicity
+
+============================================================
+BUFFER ABSTRACTION MODEL
+============================================================
+
+The buffer represents text as a sequence of editable units.
+
+It must support:
+- lines
+- characters
+- byte-level operations (internally)
+- UTF-8 awareness (externally)
+
+IMPORTANT:
+The buffer should NOT assume:
+- 1 byte = 1 character
+- 1 character = 1 column
+
+============================================================
+CORE OPERATIONS
+============================================================
+
+The buffer must support:
+
+1. insert(text, position)
+2. delete(range)
+3. replace(range, text)
+4. split_line(position)
+5. join_lines(position)
+6. get_text(range)
+7. get_line(line_number)
+8. find(pattern)
+9. batch_edit(operations)
+
+All operations must:
+- be atomic
+- be undoable
+- be efficient
+
+============================================================
+MULTICURSOR SUPPORT (CRITICAL)
+============================================================
+
+The buffer must natively support multiple cursors.
+
+Requirements:
+- simultaneous insertions
+- simultaneous deletions
+- conflict resolution
+- ordering guarantees
+
+IMPORTANT RULE:
+Multicursor operations must NOT degrade performance significantly.
+
+Avoid naive implementations like:
+- looping over cursors sequentially with full recomputation
+
+Instead:
+- batch operations
+- merge overlapping edits
+- normalize cursor sets
+
+============================================================
+UNDO / REDO SYSTEM
+============================================================
+
+The undo system must be:
+- persistent
+- structured
+- branchable (undo tree preferred)
+
+Support:
+- grouped edits
+- transaction-based edits
+- selective undo (optional advanced feature)
+
+Each operation must store:
+- previous state diff OR inverse operation
+- metadata (cursor state, selection state optional)
+
+Avoid storing full snapshots unless necessary.
+
+============================================================
+INCREMENTAL EDITING MODEL
+============================================================
+
+Buffer updates must be incremental.
+
+Do NOT:
+- rebuild entire buffer on small edits
+- recompute entire structure unnecessarily
+
+Instead:
+- local updates
+- region updates
+- lazy recomputation
+
+============================================================
+PERFORMANCE REQUIREMENTS
+============================================================
+
+Target performance:
+- insert O(log n) or better
+- delete O(log n) or better
+- line access O(1) or near O(1)
+- minimal reallocations
+- cache-friendly traversal
+
+Must support:
+- files with millions of lines
+- frequent edits without lag
+
+============================================================
+MEMORY MANAGEMENT STRATEGY
+============================================================
+
+Must define:
+- ownership model
+- allocation strategy
+- reuse strategy
+
+Preferred approaches:
+- arena allocators for edits
+- pooled memory blocks for chunks
+- reference counting ONLY if necessary
+
+Avoid:
+- per-character allocations
+- excessive fragmentation
+
+============================================================
+UTF-8 & UNICODE HANDLING
+============================================================
+
+Buffer must:
+- store UTF-8 internally
+- decode safely for display layer
+- handle invalid sequences gracefully
+
+Must support:
+- grapheme clusters (handled at higher layer but buffer must not break them)
+- emoji sequences
+- combining characters
+
+============================================================
+LINE MODEL
+============================================================
+
+Buffer must support efficient line access.
+
+Lines should be:
+- lazily computed OR
+- indexed via structure
+
+Line indexing must support:
+- fast navigation
+- fast rendering
+- fast LSP mapping
+
+============================================================
+SEARCH SYSTEM
+============================================================
+
+Buffer must support:
+- fast substring search
+- regex search (optional optimized layer)
+- incremental search updates
+
+Must support:
+- forward search
+- backward search
+- multi-result caching
+
+============================================================
+RANGE SYSTEM
+============================================================
+
+All edits operate on ranges:
+
+struct Range {
+    start_position;
+    end_position;
+};
+
+Ranges must:
+- be immutable
+- be composable
+- support merging
+- support intersection queries
+
+============================================================
+CONCURRENCY MODEL
+============================================================
+
+Buffer must support safe async interaction.
+
+Rules:
+- writes must be synchronized
+- reads should be lock-free if possible
+- LSP threads may read buffer safely
+- rendering may read snapshots
+
+Prefer:
+- copy-on-write snapshots OR
+- versioned buffer states
+
+============================================================
+SNAPSHOT SYSTEM
+============================================================
+
+The buffer must support:
+- snapshot creation
+- historical views
+- safe concurrent reads
+
+Snapshots are used for:
+- LSP
+- syntax parsing
+- search indexing
+- AI context extraction
+
+============================================================
+EVENT SYSTEM INTEGRATION
+============================================================
+
+Buffer must emit events:
+- on_insert
+- on_delete
+- on_replace
+- on_cursor_update (optional proxy)
+- on_snapshot_created
+
+Events must be:
+- lightweight
+- async-safe
+- non-blocking
+
+============================================================
+INTEGRATION WITH SYNTAX ENGINE
+============================================================
+
+Buffer must expose:
+- incremental change notifications
+- region invalidation
+- line change tracking
+
+Syntax engine depends heavily on this.
+
+============================================================
+INTEGRATION WITH RENDERER
+============================================================
+
+Buffer must provide:
+- efficient diff hooks
+- visible region extraction
+- viewport slicing
+
+Renderer should NEVER scan full buffer directly.
+
+============================================================
+ERROR HANDLING
+============================================================
+
+Buffer must:
+- never corrupt memory silently
+- validate ranges
+- prevent invalid states
+- recover gracefully from edge cases
+
+If corruption is detected:
+- fail safely
+- log error
+- attempt repair or reset
+
+============================================================
+DEBUGGING SUPPORT
+============================================================
+
+Must include:
+- buffer state dump
+- operation history trace
+- undo tree visualization
+- memory usage tracking
+- performance profiling hooks
+
+============================================================
+TESTING REQUIREMENTS
+============================================================
+
+Must include:
+- insert/delete correctness tests
+- multicursor stress tests
+- undo/redo consistency tests
+- large file benchmarks
+- unicode edge case tests
+- fuzz testing (critical)
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+The buffer system should behave like:
+
+- a high-performance database for text
+- not a simple string container
+
+It must be:
+- fast
+- predictable
+- safe
+- scalable
+- deeply integrated with all editor systems
+
+============================================================
+FINAL RULE
+============================================================
+
+If the buffer design is weak, the entire INTERM editor fails.
+
+This system must be engineered with extreme care and precision.

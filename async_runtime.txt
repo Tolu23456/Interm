@@ -1,0 +1,366 @@
+SUBSYSTEM: ASYNC RUNTIME / TASK SYSTEM
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core), optional Python integration layer
+ROLE: Concurrency + background task orchestration engine
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a high-performance asynchronous runtime for INTERM.
+
+This system is responsible for:
+- executing background tasks
+- scheduling work efficiently
+- preventing UI blocking
+- managing cancellation
+- coordinating subsystems
+- handling concurrency safely
+
+The runtime is the backbone of responsiveness.
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+The UI thread MUST NEVER be blocked.
+
+All expensive operations must be async:
+- file I/O
+- syntax parsing
+- LSP communication
+- git operations
+- search indexing
+- AI calls
+- plugin execution
+
+============================================================
+REQUIRED MODEL: TASK-BASED CONCURRENCY
+============================================================
+
+Use a task-based system, NOT raw threads.
+
+Core concept:
+- Everything is a Task
+- Tasks are scheduled, prioritized, and executed by workers
+
+Each task must define:
+- function pointer
+- input payload
+- priority
+- cancellation token
+- state tracking
+
+============================================================
+TASK STRUCTURE
+============================================================
+
+struct Task {
+    id;
+    priority;
+    state;
+    function_ptr;
+    input_data;
+    cancellation_token;
+    result;
+    error_state;
+};
+
+Task states:
+- queued
+- running
+- completed
+- cancelled
+- failed
+
+============================================================
+SCHEDULER DESIGN
+============================================================
+
+The scheduler must:
+- distribute tasks across worker threads
+- respect priority queues
+- support task cancellation
+- support task dependencies (optional DAG mode)
+
+Priority levels:
+- critical (UI responsiveness)
+- high (rendering, input)
+- normal (LSP, parsing)
+- low (indexing, background AI)
+- idle (cleanup tasks)
+
+============================================================
+THREADING MODEL
+============================================================
+
+Use a hybrid model:
+
+1. Single UI thread
+2. Worker thread pool
+3. Optional I/O thread pool
+
+Rules:
+- UI thread only handles rendering + input
+- workers handle all computation
+- no worker may directly access UI state
+
+============================================================
+WORKER POOL DESIGN
+============================================================
+
+Worker threads:
+- pull tasks from queue
+- execute task
+- report results asynchronously
+
+Must support:
+- dynamic scaling (optional)
+- load balancing
+- task stealing (optional optimization)
+
+============================================================
+QUEUE SYSTEM
+============================================================
+
+Must implement:
+- multi-priority queue
+- lock-minimized access
+- fast enqueue/dequeue
+- cancellation-aware removal (or lazy cancellation)
+
+Prefer:
+- lock-free queues OR
+- fine-grained locking
+
+============================================================
+CANCELLATION SYSTEM
+============================================================
+
+Every task must support cancellation.
+
+Cancellation model:
+- cooperative cancellation (preferred)
+- token checked periodically
+
+Rules:
+- cancelled tasks must stop ASAP
+- must not leak resources
+- must not return results
+
+============================================================
+ASYNC COMMUNICATION MODEL
+============================================================
+
+Subsystems communicate via:
+- message passing
+- event dispatch
+- task results queue
+
+Avoid:
+- shared mutable state
+- direct cross-thread function calls
+
+============================================================
+FUTURES / PROMISES MODEL (OPTIONAL ABSTRACTION)
+============================================================
+
+Provide optional abstraction:
+
+Future<T>:
+- represents eventual result
+- supports await-like behavior in C layer (simulated)
+
+Used for:
+- LSP responses
+- file reads
+- search results
+- AI streaming chunks
+
+============================================================
+RESULT HANDLING SYSTEM
+============================================================
+
+Task results must:
+- be delivered asynchronously
+- be typed or tagged
+- be safely consumable by UI thread
+
+Use:
+- result queue OR
+- callback dispatch system
+
+============================================================
+EVENT LOOP INTEGRATION
+============================================================
+
+Async runtime must integrate with:
+- rendering engine
+- input system
+- buffer engine
+- LSP system
+- plugin system
+
+Event loop flow:
+1. poll input
+2. process UI events
+3. process completed tasks
+4. schedule new tasks
+5. render frame (if needed)
+
+============================================================
+TIMING + SCHEDULING
+============================================================
+
+Must support:
+- time-based tasks
+- delayed execution
+- periodic tasks
+
+Examples:
+- autosave every N seconds
+- LSP heartbeat
+- AI streaming updates
+
+============================================================
+BACKPRESSURE CONTROL
+============================================================
+
+System must prevent overload.
+
+Mechanisms:
+- task queue limits
+- priority starvation prevention
+- worker saturation detection
+- task rejection policy (optional)
+
+============================================================
+PERFORMANCE REQUIREMENTS
+============================================================
+
+Runtime must:
+- handle thousands of tasks/sec
+- avoid contention bottlenecks
+- minimize locking overhead
+- maintain low latency for UI-critical tasks
+
+============================================================
+MEMORY MANAGEMENT
+============================================================
+
+Must define:
+- task allocation strategy
+- reuse pools for tasks
+- avoid frequent heap allocations
+
+Prefer:
+- preallocated task pools
+- arena-based allocations for task metadata
+
+============================================================
+ERROR HANDLING
+============================================================
+
+Tasks must:
+- isolate failures
+- not crash workers
+- report structured errors
+- allow retry logic (optional)
+
+Worker crash must NOT crash editor.
+
+============================================================
+DEBUGGING SUPPORT
+============================================================
+
+Must include:
+- task timeline logging
+- queue depth monitoring
+- worker utilization stats
+- slow task detection
+- deadlock detection hooks
+
+============================================================
+INTEGRATION WITH BUFFER SYSTEM
+============================================================
+
+Async runtime powers:
+- incremental parsing
+- file loading
+- buffer snapshots
+- search indexing
+
+Buffer updates must be scheduled as tasks.
+
+============================================================
+INTEGRATION WITH RENDERER
+============================================================
+
+Rendering requests must:
+- be scheduled as high priority tasks
+- never be blocked by background work
+
+Rendering updates are event-driven tasks.
+
+============================================================
+INTEGRATION WITH LSP
+============================================================
+
+LSP communication must be async:
+- request/response mapping
+- streaming diagnostics
+- cancellation support for requests
+
+============================================================
+INTEGRATION WITH PLUGINS
+============================================================
+
+Plugins must run inside controlled async tasks.
+
+Rules:
+- plugins cannot block scheduler
+- plugins must use task API
+- plugins must respect cancellation tokens
+
+============================================================
+INTEGRATION WITH AI SYSTEM
+============================================================
+
+AI calls are long-running tasks:
+- streaming support required
+- partial result updates
+- cancellation allowed
+
+============================================================
+TESTING REQUIREMENTS
+============================================================
+
+Must include:
+- concurrency stress tests
+- race condition detection
+- deadlock tests
+- task overload tests
+- cancellation correctness tests
+- worker crash recovery tests
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+The async runtime should behave like:
+- a lightweight operating system scheduler inside the editor
+
+It must be:
+- fast
+- safe
+- predictable
+- scalable
+- failure-resilient
+
+============================================================
+FINAL RULE
+============================================================
+
+If the async runtime is unstable, the entire INTERM editor becomes unusable.
+
+This system must be engineered with extreme precision.

@@ -1,0 +1,391 @@
+SYSTEM: CORE API DESIGN SPECIFICATION
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core APIs) + Python (bindings layer)
+ROLE: Internal contract layer between all subsystems
+
+============================================================
+OBJECTIVE
+============================================================
+
+Define the stable internal APIs that connect all major INTERM subsystems.
+
+This is the "contract layer" of the entire system.
+
+It defines how:
+- buffer engine talks to renderer
+- async runtime executes tasks
+- plugins interact safely
+- LSP integrates with editor state
+- AI systems read context
+- UI components are constructed
+
+If this layer is weak, the entire system collapses.
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+APIs must be:
+
+- stable
+- minimal
+- versioned
+- explicit
+- dependency-free between modules
+- safe by default
+
+No subsystem should directly access internal memory of another subsystem.
+
+============================================================
+ARCHITECTURE OVERVIEW
+============================================================
+
+The Core API layer exposes:
+
+1. Buffer API
+2. Renderer API
+3. Async Task API
+4. Event API
+5. Command API
+6. Plugin API
+7. LSP API
+8. AI API
+9. File System API (abstraction)
+10. UI Component API
+
+Each API must be independent.
+
+============================================================
+VERSIONING SYSTEM
+============================================================
+
+All APIs must include versioning:
+
+struct API_VERSION {
+    major;
+    minor;
+    patch;
+};
+
+Rules:
+- breaking changes increment major version
+- backward compatibility must be documented
+- plugins must declare compatible API versions
+
+============================================================
+BUFFER API
+============================================================
+
+Responsible for text manipulation.
+
+Must expose:
+
+- buffer_create()
+- buffer_destroy()
+- buffer_insert()
+- buffer_delete()
+- buffer_replace()
+- buffer_get_line()
+- buffer_get_range()
+- buffer_snapshot()
+- buffer_apply_edits()
+- buffer_register_listener()
+
+Rules:
+- no direct memory access
+- all edits must be validated
+- all operations must be undoable
+
+============================================================
+RENDERER API
+============================================================
+
+Responsible for UI drawing abstraction.
+
+Must expose:
+
+- render_frame()
+- render_cell_update()
+- render_region_invalidate()
+- render_layer_push()
+- render_layer_pop()
+- render_cursor_set()
+- render_popup_create()
+- render_statusline_update()
+
+Rules:
+- no direct terminal access outside renderer
+- rendering must be diff-based
+- all updates must go through pipeline
+
+============================================================
+ASYNC TASK API
+============================================================
+
+Wraps async runtime system.
+
+Must expose:
+
+- task_create()
+- task_submit()
+- task_cancel()
+- task_status()
+- task_result_get()
+- task_priority_set()
+
+Rules:
+- all long operations must be tasks
+- tasks must be cancellable
+- no blocking calls allowed in core APIs
+
+============================================================
+EVENT API
+============================================================
+
+Central communication system.
+
+Must expose:
+
+- event_emit()
+- event_subscribe()
+- event_unsubscribe()
+- event_filter_register()
+
+Event types:
+- buffer events
+- cursor events
+- render events
+- plugin events
+- LSP events
+- AI events
+
+Rules:
+- fully async delivery
+- no event may block dispatch loop
+- events must be immutable
+
+============================================================
+COMMAND API
+============================================================
+
+Handles editor commands.
+
+Must expose:
+
+- command_register()
+- command_execute()
+- command_list()
+- command_alias_create()
+- command_context_bind()
+
+Commands must:
+- be discoverable
+- support arguments
+- support async execution
+
+============================================================
+PLUGIN API
+============================================================
+
+Core interface for extensions.
+
+Must expose:
+
+- plugin_register()
+- plugin_load()
+- plugin_unload()
+- plugin_execute()
+- plugin_event_bind()
+- plugin_command_register()
+
+Rules:
+- plugins must never access raw core memory
+- all interactions must go through API layer
+- sandbox enforcement required
+
+============================================================
+LSP API
+============================================================
+
+Abstracts language server communication.
+
+Must expose:
+
+- lsp_start_server()
+- lsp_stop_server()
+- lsp_request()
+- lsp_cancel()
+- lsp_diagnostics_get()
+- lsp_completion_get()
+- lsp_hover_get()
+
+Rules:
+- fully async
+- server isolation required
+- JSON-RPC hidden behind API
+
+============================================================
+AI API
+============================================================
+
+Abstract AI layer.
+
+Must expose:
+
+- ai_request()
+- ai_stream()
+- ai_cancel()
+- ai_context_build()
+- ai_provider_register()
+
+Rules:
+- provider-agnostic
+- optional system component
+- must never block editor
+
+============================================================
+FILE SYSTEM API
+============================================================
+
+Unified file abstraction layer.
+
+Must expose:
+
+- fs_read()
+- fs_write()
+- fs_watch()
+- fs_list()
+- fs_stat()
+- fs_open_stream()
+
+Supports:
+- local files
+- remote files (future)
+- virtual files (buffers)
+
+============================================================
+UI COMPONENT API
+============================================================
+
+Used by plugins and core UI system.
+
+Must expose:
+
+- ui_panel_create()
+- ui_popup_create()
+- ui_window_split()
+- ui_widget_render()
+- ui_component_update()
+
+Rules:
+- must go through renderer
+- no direct terminal access
+- composable components only
+
+============================================================
+MEMORY SAFETY RULES
+============================================================
+
+All APIs must enforce:
+
+- no dangling pointers exposed
+- no raw ownership leaks
+- no cross-module memory mutation
+- controlled allocation lifecycle
+
+Prefer:
+- opaque structs
+- handle-based references
+
+============================================================
+ERROR HANDLING MODEL
+============================================================
+
+All API calls return structured results:
+
+struct API_RESULT {
+    status;
+    error_code;
+    message;
+    payload;
+};
+
+Rules:
+- no silent failures
+- no undefined behavior propagation
+- all errors must be recoverable or reported
+
+============================================================
+ASYNC INTEGRATION RULES
+============================================================
+
+All APIs must be async-aware:
+
+- long operations return tasks
+- results may be streamed
+- cancellation supported
+
+============================================================
+DEPENDENCY RULES
+============================================================
+
+Core APIs must:
+- NOT depend on each other internally
+- avoid circular dependencies
+- use event system for cross-talk
+
+Example:
+Renderer does NOT call Buffer directly.
+Buffer emits events → Renderer reacts.
+
+============================================================
+OBSERVABILITY HOOKS
+============================================================
+
+All APIs must support:
+
+- debug logging hooks
+- performance tracing
+- event inspection
+- state snapshots
+
+============================================================
+PLUGIN SAFETY INTEGRATION
+============================================================
+
+Plugin access must:
+- go through API layer only
+- respect permissions
+- be sandboxed
+
+============================================================
+PERFORMANCE REQUIREMENTS
+============================================================
+
+APIs must:
+- be low overhead
+- avoid unnecessary allocations
+- minimize indirection cost
+- be cache-friendly
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+Core API layer should behave like:
+
+- a stable operating system kernel interface for the editor
+
+It must be:
+- minimal
+- strict
+- predictable
+- versioned
+- safe
+
+============================================================
+FINAL RULE
+============================================================
+
+If any subsystem bypasses the Core API layer:
+the architecture is considered broken.

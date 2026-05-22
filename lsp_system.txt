@@ -1,0 +1,399 @@
+SUBSYSTEM: LANGUAGE SERVER PROTOCOL (LSP) SYSTEM
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core runtime) + Python (integration layer)
+ROLE: Code intelligence, diagnostics, and language features engine
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a fully async, high-performance LSP integration system for INTERM.
+
+This system provides:
+- code completion
+- diagnostics
+- go-to-definition
+- hover information
+- rename symbol
+- references search
+- code actions
+- formatting
+- inlay hints (future)
+
+It must feel:
+- instant
+- non-blocking
+- stable under load
+- multi-language aware
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+LSP is NOT a blocking service.
+
+It must:
+- run fully asynchronously
+- support multiple servers concurrently
+- never freeze the editor
+- degrade gracefully under failure
+
+============================================================
+ARCHITECTURE OVERVIEW
+============================================================
+
+The LSP system consists of:
+
+1. LSP Client Manager
+2. Server Process Manager
+3. Request/Response Router
+4. Message Serializer (JSON-RPC)
+5. Async Task Bridge (to runtime)
+6. Buffer Sync Engine
+7. Diagnostics Engine
+8. Capability Registry
+
+============================================================
+LSP PROCESS MODEL
+============================================================
+
+Each language server runs as a separate process.
+
+INTERM communicates via:
+- stdin/stdout (JSON-RPC 2.0)
+
+Rules:
+- never trust external LSP servers
+- isolate crashes
+- restart broken servers automatically
+
+============================================================
+CORE COMPONENT: LSP CLIENT MANAGER
+============================================================
+
+Responsible for:
+- starting servers
+- stopping servers
+- tracking active sessions
+- managing server lifecycle
+- handling reconnects
+
+Each language server instance is tied to:
+- workspace folder
+- file type(s)
+
+============================================================
+JSON-RPC COMMUNICATION LAYER
+============================================================
+
+Must implement:
+- request sending
+- response matching
+- notification handling
+- timeout handling
+- cancellation support
+
+Each request must include:
+- unique ID
+- method name
+- parameters
+- cancellation token (optional)
+
+============================================================
+ASYNC REQUEST SYSTEM
+============================================================
+
+All LSP requests must be:
+- non-blocking
+- tracked via futures/promises
+- cancellable
+
+Examples:
+- hover requests
+- completion requests
+- definition lookup
+
+If request is slow:
+- allow cancellation
+- allow stale response dropping
+
+============================================================
+BUFFER SYNC ENGINE
+============================================================
+
+Critical component.
+
+Responsible for:
+- syncing buffer state to LSP servers
+- tracking file versions
+- sending incremental changes
+
+Must support:
+- full document sync
+- incremental sync
+- versioned updates
+
+Rules:
+- LSP must ALWAYS receive accurate buffer state
+- stale edits must be rejected
+
+============================================================
+DIAGNOSTICS ENGINE
+============================================================
+
+Handles:
+- errors
+- warnings
+- hints
+- info messages
+
+Must:
+- update incrementally
+- not block rendering
+- merge diagnostics from multiple servers
+
+Diagnostics must be:
+- cached
+- debounced
+- region-mapped
+
+============================================================
+COMPLETION ENGINE
+============================================================
+
+Must support:
+- async completion requests
+- ranked suggestions
+- fuzzy filtering (client-side enhancement)
+- snippet expansion
+- multi-source completion merging
+
+Completion sources:
+- LSP
+- local heuristics
+- optional AI layer
+- buffer history
+
+============================================================
+HOVER SYSTEM
+============================================================
+
+Must provide:
+- tooltip-style information
+- async fetch
+- cached results
+- quick dismissal
+
+Hover must:
+- never block typing
+- be cancelable
+- update smoothly
+
+============================================================
+GO TO DEFINITION
+============================================================
+
+Must support:
+- cross-file navigation
+- multiple results
+- preview window
+- fallback search (if LSP fails)
+
+Must integrate with:
+- file system index
+- buffer cache
+
+============================================================
+RENAME SYSTEM
+============================================================
+
+Must be:
+- transactional
+- previewable
+- undoable
+- multi-file safe
+
+Rename flow:
+1. request rename preview
+2. show diff
+3. confirm
+4. apply batch edits
+
+============================================================
+CODE ACTIONS SYSTEM
+============================================================
+
+Must support:
+- quick fixes
+- refactoring suggestions
+- lint-based fixes
+
+Actions must be:
+- context aware
+- ranked
+- safe to preview
+
+============================================================
+FORMATTING ENGINE
+============================================================
+
+Must support:
+- full file formatting
+- range formatting
+- on-save formatting (optional)
+
+Must:
+- be async
+- support cancellation
+- preserve cursor position
+
+============================================================
+MULTI-SERVER SUPPORT
+============================================================
+
+INTERM must support:
+- multiple LSP servers at once
+- per-language routing
+- conflict resolution
+
+Example:
+- Python → pyright
+- JS → tsserver
+- Rust → rust-analyzer
+
+============================================================
+CAPABILITY REGISTRY
+============================================================
+
+Each server advertises capabilities.
+
+INTERM must:
+- store capabilities
+- adapt UI features dynamically
+- disable unsupported features gracefully
+
+============================================================
+ERROR HANDLING
+============================================================
+
+LSP failures must NEVER crash editor.
+
+Handle:
+- server crash
+- invalid responses
+- timeouts
+- malformed JSON
+- version mismatch
+
+Recovery:
+- restart server
+- fallback to basic editor features
+
+============================================================
+CACHING SYSTEM
+============================================================
+
+Must cache:
+- completion results
+- hover data
+- diagnostics snapshots
+- symbol tables
+
+Cache must:
+- expire safely
+- update incrementally
+- avoid stale UI artifacts
+
+============================================================
+PERFORMANCE REQUIREMENTS
+============================================================
+
+Must ensure:
+- zero UI blocking
+- fast response for cached queries
+- debounced requests
+- minimal JSON parsing overhead
+
+Must handle:
+- large repositories
+- multiple active files
+- frequent edits
+
+============================================================
+CONCURRENCY MODEL
+============================================================
+
+Must integrate with async runtime:
+- all requests are tasks
+- responses are event-driven
+- cancellation is mandatory
+
+============================================================
+MESSAGE ROUTING SYSTEM
+============================================================
+
+Must map:
+- request ID → response handler
+- server → workspace
+- file → language server
+
+Routing must be:
+- deterministic
+- fast
+- thread-safe
+
+============================================================
+DEBUGGING SUPPORT
+============================================================
+
+Must include:
+- raw JSON-RPC logs
+- request timing logs
+- server health dashboard
+- diagnostic overlay mode
+
+============================================================
+TESTING REQUIREMENTS
+============================================================
+
+Must include:
+- mock LSP servers
+- timeout tests
+- crash recovery tests
+- multi-server stress tests
+- large project simulation tests
+
+============================================================
+PYTHON INTEGRATION (OPTIONAL LAYER)
+============================================================
+
+Python may:
+- extend completion logic
+- add AI-assisted suggestions
+- preprocess diagnostics
+- inject custom commands
+
+But MUST NOT:
+- bypass core LSP safety layer
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+LSP system should behave like:
+- a distributed intelligence layer inside the editor
+
+It must be:
+- resilient
+- async-first
+- scalable
+- multi-language aware
+
+============================================================
+FINAL RULE
+============================================================
+
+If LSP is slow, unstable, or blocking:
+the entire INTERM editor feels broken.
+
+This system must be extremely robust.

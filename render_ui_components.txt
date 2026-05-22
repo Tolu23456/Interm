@@ -1,0 +1,346 @@
+SYSTEM: RENDERING + UI COMPONENTS + LAYOUT ENGINE
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core rendering) + minimal Python (extensions/tools)
+ROLE: Terminal UI rendering, layout system, and visual component framework
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a high-performance terminal rendering system for INTERM that supports:
+
+- diff-based rendering
+- modular UI components
+- flexible layouts
+- overlays and popups
+- animations (lightweight)
+- plugin UI extensions
+
+It must feel:
+- smooth
+- responsive
+- modern (beyond traditional terminal UX)
+- visually structured even in text-only environment
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+Rendering is a diff problem, not a full redraw problem.
+
+Rules:
+- never redraw entire screen unless necessary
+- compute minimal changes
+- batch render operations
+- prioritize visible region only
+
+============================================================
+RENDERING PIPELINE
+============================================================
+
+Pipeline stages:
+
+1. UI State Update
+2. Layout Resolution
+3. Diff Computation
+4. Render Command Generation
+5. Terminal Output Flush
+
+Each stage must be:
+- isolated
+- cacheable
+- async-compatible
+
+============================================================
+FRAME MODEL
+============================================================
+
+Rendering operates on frames:
+
+struct Frame {
+    timestamp;
+    width;
+    height;
+    dirty_regions;
+    draw_commands;
+};
+
+Rules:
+- frames are immutable once produced
+- only diff between frames is rendered
+
+============================================================
+DIFF ENGINE
+============================================================
+
+Must compute:
+
+- cell-level differences
+- region-level changes
+- line-level optimizations
+
+Optimization rules:
+- merge adjacent updates
+- skip unchanged regions
+- batch terminal writes
+
+============================================================
+LAYOUT SYSTEM
+============================================================
+
+Supports flexible layout hierarchy:
+
+- split panes (vertical/horizontal)
+- tabs
+- floating panels
+- overlays
+- popups
+
+Layout types:
+
+struct LayoutNode {
+    type;
+    children;
+    constraints;
+    size;
+    position;
+};
+
+============================================================
+LAYOUT CONSTRAINT SYSTEM
+============================================================
+
+Must support:
+
+- fixed size
+- percentage-based sizing
+- flexible growth (fill remaining space)
+- min/max constraints
+
+Example:
+- left panel = 30%
+- editor = remaining space
+- sidebar = collapsible
+
+============================================================
+UI COMPONENT SYSTEM
+============================================================
+
+UI is composed of components:
+
+- BufferView
+- StatusBar
+- CommandPalette
+- FileExplorer
+- PopupWindow
+- NotificationToast
+
+Each component must:
+- render independently
+- expose update hooks
+- support partial redraw
+
+============================================================
+COMPONENT LIFECYCLE
+
+Each UI component follows:
+
+1. create()
+2. mount()
+3. update()
+4. render()
+5. unmount()
+
+Rules:
+- components must be stateless where possible
+- state must be centralized or controlled
+
+============================================================
+OVERLAY SYSTEM
+============================================================
+
+Overlays include:
+
+- command palette
+- search UI
+- AI chat window
+- diagnostics popup
+
+Rules:
+- overlays must NOT block main rendering
+- overlays render on top layer
+- multiple overlays can stack safely
+
+============================================================
+STATUSLINE SYSTEM
+============================================================
+
+Statusline must support:
+
+- dynamic segments
+- plugin extensions
+- mode indicators
+- git info
+- LSP status
+- cursor position
+
+Must be:
+- low-cost to update
+- partially updatable (segment-based diff)
+
+============================================================
+CURSOR RENDERING SYSTEM
+============================================================
+
+Cursor must support:
+
+- mode-based shapes
+- multi-cursor rendering
+- blinking control
+- smooth movement updates
+
+Rules:
+- cursor updates are high priority renders
+- must not lag behind input system
+
+============================================================
+TEXT BUFFER RENDERING
+
+Must support:
+
+- syntax highlighting integration
+- selection rendering
+- diagnostic overlays
+- line folding visualization
+
+Rules:
+- only visible viewport is rendered
+- offscreen lines are not processed
+
+============================================================
+ANIMATION SYSTEM (LIGHTWEIGHT)
+
+Terminal-safe animations:
+
+- cursor blink
+- popup fade-in/out (simulated)
+- smooth selection transitions (optional)
+
+Rules:
+- no blocking delays
+- animation must be frame-based
+- must degrade gracefully on slow terminals
+
+============================================================
+DIRTY REGION TRACKING
+
+System tracks:
+
+- changed lines
+- changed cells
+- layout invalidations
+
+Rules:
+- only dirty regions are re-rendered
+- global redraw only on structural change
+
+============================================================
+TERMINAL ABSTRACTION LAYER
+
+Renderer must abstract terminal differences:
+
+- ANSI escape handling
+- Windows terminal compatibility
+- color support detection
+- unicode rendering safety
+
+============================================================
+COLOR + STYLE ENGINE
+
+Must support:
+
+- 24-bit true color
+- 256-color fallback
+- theme integration
+- semantic coloring (syntax + diagnostics)
+
+============================================================
+PERFORMANCE REQUIREMENTS
+
+Renderer must achieve:
+
+- <16ms frame update target
+- minimal full redraws
+- zero flicker behavior
+- stable performance on large buffers
+
+============================================================
+PLUGIN UI INTEGRATION
+
+Plugins may:
+
+- register UI components
+- create overlays
+- inject layout nodes
+
+But must NOT:
+- bypass rendering pipeline
+- directly write terminal output
+
+============================================================
+ERROR HANDLING
+
+Must handle:
+
+- invalid layout trees
+- component crashes
+- missing render data
+- terminal capability mismatch
+
+Rules:
+- rendering must never crash editor
+- fallback to safe text rendering
+
+============================================================
+DEBUGGING TOOLS
+
+Must include:
+
+- render frame inspector
+- diff visualization mode
+- layout tree viewer
+- performance overlay
+- dirty region heatmap
+
+============================================================
+INTEGRATION POINTS
+
+Renderer depends on:
+
+- buffer system → text content
+- syntax engine → highlighting
+- event system → update triggers
+- input system → cursor movement
+- async runtime → background updates
+
+============================================================
+DESIGN GOAL SUMMARY
+
+Renderer should behave like:
+
+- a real-time UI compositor for a terminal-based operating system
+
+It must be:
+- fast
+- modular
+- predictable
+- diff-driven
+- extensible
+
+============================================================
+FINAL RULE
+
+If rendering is slow or causes flicker:
+the entire editor experience breaks instantly.
+
+This system must always prioritize visual responsiveness.

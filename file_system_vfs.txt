@@ -1,0 +1,312 @@
+SYSTEM: FILE SYSTEM + VIRTUAL FILE SYSTEM (VFS) ABSTRACTION LAYER
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core) + Python (extensions/tools)
+ROLE: Unified file access, remote integration, and virtual workspace system
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a unified file system abstraction for INTERM that allows the editor to treat ALL sources of data as files:
+
+- local filesystem
+- remote SSH files
+- cloud storage
+- git objects
+- in-memory buffers
+- virtual/generated files
+- LSP virtual documents
+
+Everything must behave like a file, regardless of origin.
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+There is no “real file” vs “virtual file”.
+
+Everything is a FileHandle.
+
+============================================================
+VFS ARCHITECTURE OVERVIEW
+============================================================
+
+The VFS system consists of:
+
+1. VFS Core Router
+2. File Provider System
+3. File Handle Manager
+4. Path Resolution Engine
+5. Cache Layer
+6. Sync Layer (optional)
+7. Watcher System
+
+============================================================
+FILE HANDLE MODEL
+============================================================
+
+struct FileHandle {
+    id;
+    path;
+    source_type;
+    permissions;
+    state;
+    size;
+    metadata;
+};
+
+Source types:
+- LOCAL
+- REMOTE_SSH
+- CLOUD
+- GIT_OBJECT
+- MEMORY_BUFFER
+- GENERATED
+- LSP_VIRTUAL
+
+============================================================
+CORE VFS OPERATIONS
+============================================================
+
+Must expose unified API:
+
+- vfs_open(path)
+- vfs_read(handle)
+- vfs_write(handle)
+- vfs_close(handle)
+- vfs_stat(path)
+- vfs_list(directory)
+- vfs_delete(path)
+- vfs_move(src, dst)
+
+Rules:
+- all operations are async-capable
+- all operations must support cancellation
+- all operations must be event-driven internally
+
+============================================================
+FILE PROVIDER SYSTEM
+============================================================
+
+Each file source is a provider:
+
+Providers:
+- LocalProvider
+- SSHProvider
+- CloudProvider
+- GitProvider
+- MemoryProvider
+- LSPProvider
+
+Each provider must implement:
+
+- open()
+- read()
+- write()
+- stat()
+- list()
+- watch()
+
+============================================================
+PATH RESOLUTION ENGINE
+============================================================
+
+Paths must be resolved through a unified resolver:
+
+Examples:
+- /local/project/file.txt
+- ssh://server/home/file.py
+- git://repo@commit:path
+- mem://buffer123
+
+Rules:
+- scheme-based routing
+- provider selection by prefix
+- fallback resolution strategy
+
+============================================================
+CACHING SYSTEM
+============================================================
+
+VFS must cache:
+
+- file contents
+- metadata
+- directory listings
+- remote snapshots
+
+Cache must:
+- be invalidated on changes
+- support time-based expiry
+- sync lazily
+
+============================================================
+FILE WATCHING SYSTEM
+============================================================
+
+Must support real-time updates:
+
+- local file watchers (inotify / platform APIs)
+- remote polling watchers
+- virtual buffer change events
+
+Watcher must emit:
+- file_changed
+- file_deleted
+- file_created
+
+============================================================
+ASYNC FILE IO MODEL
+============================================================
+
+All IO must be async:
+
+- non-blocking reads
+- streamed writes (for large files)
+- cancellable operations
+
+Must integrate with async runtime system.
+
+============================================================
+BUFFER INTEGRATION
+============================================================
+
+Buffers are backed by VFS handles.
+
+Rules:
+- buffer == live view of file handle
+- buffer changes propagate to VFS
+- VFS updates propagate to buffer
+
+Must support:
+- unsaved buffers (memory-only)
+- dirty state tracking
+
+============================================================
+REMOTE FILE SUPPORT (SSH / CLOUD)
+
+Remote providers must support:
+
+- latency-aware caching
+- partial reads
+- reconnect handling
+- offline mode fallback
+
+Must not block editor UI during network operations.
+
+============================================================
+GIT INTEGRATION LAYER
+
+Git provider must allow:
+
+- file at commit access
+- diff-based reads
+- staging simulation
+- branch-aware file resolution
+
+Paths:
+git://repo@branch:/file/path
+
+============================================================
+MEMORY FILE SYSTEM
+
+Supports:
+- scratch buffers
+- AI-generated files
+- temporary previews
+- plugin-generated data
+
+Must behave like normal files but:
+- non-persistent
+- fast access
+- auto cleanup optional
+
+============================================================
+ERROR HANDLING
+
+Must handle:
+- missing files
+- network failure
+- permission errors
+- corrupted data sources
+
+Rules:
+- never crash editor
+- fallback gracefully
+- return structured errors
+
+============================================================
+PERFORMANCE REQUIREMENTS
+
+VFS must:
+- minimize IO latency
+- cache aggressively
+- batch remote requests
+- support large files efficiently
+
+Target:
+- instant local file access
+- near-instant cached remote access
+
+============================================================
+INTEGRATION WITH SYSTEMS
+
+VFS connects to:
+
+- Buffer Engine → file content source
+- LSP → workspace files
+- AI → context retrieval
+- Plugins → file manipulation tools
+- Syntax Engine → parsing input source
+- Async Runtime → IO scheduling
+
+============================================================
+SECURITY MODEL
+
+Must enforce:
+- access permissions per provider
+- sandboxing for remote sources
+- plugin file access restrictions
+- optional read-only modes
+
+============================================================
+DEBUGGING TOOLS
+
+Must include:
+- file access tracer
+- IO latency profiler
+- cache hit/miss inspector
+- provider debug logs
+
+============================================================
+PLUGIN INTEGRATION
+
+Plugins may:
+- register new file providers
+- extend path schemes
+- intercept file operations
+
+But must NOT:
+- bypass VFS routing layer
+- directly access OS filesystem without permission
+
+============================================================
+DESIGN GOAL SUMMARY
+
+VFS should behave like:
+
+- a universal filesystem abstraction layer over all data sources
+
+It must be:
+- unified
+- extensible
+- fast
+- cache-aware
+- async-first
+
+============================================================
+FINAL RULE
+
+If VFS is inconsistent, every subsystem (LSP, buffer, AI, plugins) becomes unstable.
+
+This is a foundational abstraction layer.

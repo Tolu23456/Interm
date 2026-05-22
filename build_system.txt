@@ -1,0 +1,320 @@
+SYSTEM: BUILD SYSTEM + COMPILATION ARCHITECTURE
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C core + Python tooling layer
+ROLE: Cross-platform build, linking, packaging, and development orchestration
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a fast, modern, and modular build system for INTERM that:
+
+- compiles C core efficiently
+- integrates Python layer cleanly
+- supports cross-platform builds
+- enables fast iteration during development
+- supports debugging, profiling, and release modes
+
+The build system must feel:
+- simple for developers
+- powerful under the hood
+- fast even on large codebases
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+Build speed is a first-class feature.
+
+The build system must:
+- minimize rebuild time
+- avoid unnecessary recompilation
+- support incremental builds
+- cache aggressively
+- parallelize compilation safely
+
+============================================================
+RECOMMENDED BUILD TOOLING
+============================================================
+
+Primary system:
+- Meson (preferred for speed + simplicity)
+OR
+- CMake (fallback for ecosystem compatibility)
+
+Optional tooling:
+- Ninja (backend executor)
+- Python scripts (automation layer)
+
+============================================================
+PROJECT STRUCTURE INTEGRATION
+============================================================
+
+Build system must map cleanly to:
+
+/core
+/render
+/buffer
+/lsp
+/ai
+/plugins
+/terminal
+/ui
+/async
+/platform
+
+Each module must compile independently where possible.
+
+============================================================
+BUILD MODES
+============================================================
+
+INTERM must support multiple build configurations:
+
+1. DEBUG
+   - full logs
+   - assertions enabled
+   - no optimizations
+   - sanitizer enabled
+
+2. RELEASE
+   - full optimization (-O2 / -O3)
+   - minimal logging
+   - stripped symbols optional
+
+3. PERF
+   - profiling enabled
+   - instrumentation hooks active
+
+4. SANITIZER
+   - AddressSanitizer
+   - UndefinedBehaviorSanitizer
+   - Memory leak detection
+
+============================================================
+INCREMENTAL BUILD STRATEGY
+============================================================
+
+The build system must:
+- track file-level dependencies
+- avoid full rebuilds
+- cache object files aggressively
+- reuse compilation artifacts
+
+Rules:
+- no unnecessary recompilation
+- only rebuild changed modules
+- support partial linking where possible
+
+============================================================
+DEPENDENCY GRAPH SYSTEM
+============================================================
+
+Build system must maintain dependency graph:
+
+Example:
+render → terminal
+ui → render
+lsp → async
+plugins → core_api
+ai → async + plugins
+
+Rules:
+- no circular dependencies allowed
+- dependency graph must be validated at build time
+- failures must be reported clearly
+
+============================================================
+C COMPILATION RULES
+============================================================
+
+Compiler flags must enforce:
+
+- strict warnings (-Wall -Wextra -Werror optional)
+- memory safety checks in debug mode
+- optimization flags in release mode
+
+Required:
+- consistent ABI across modules
+- no undefined behavior allowed in core
+
+============================================================
+PYTHON INTEGRATION BUILD
+============================================================
+
+Python layer must be built separately:
+
+- virtual environment support
+- dependency locking (requirements.txt or poetry optional)
+- embedding into C binary OR IPC bridge
+
+Must support:
+- plugin runtime execution
+- tooling scripts
+- AI orchestration layer
+
+============================================================
+LINKING STRATEGY
+============================================================
+
+Core binary must:
+- statically link critical modules where possible
+- dynamically load plugins
+- isolate Python runtime
+
+Linking rules:
+- core engine = static preferred
+- plugins = dynamic shared libraries
+- Python = embedded or external runtime
+
+============================================================
+CROSS-PLATFORM SUPPORT
+============================================================
+
+Must support:
+- Linux (primary)
+- macOS
+- Windows (via MinGW or MSVC abstraction layer)
+
+Platform abstraction layer required:
+- file system handling
+- terminal handling
+- process spawning
+- threading model
+
+============================================================
+ARTIFACT OUTPUTS
+============================================================
+
+Build system must produce:
+
+- interm executable
+- plugin shared libraries
+- debug symbols (optional)
+- test binaries
+- benchmark binaries
+
+============================================================
+HOT REBUILD / DEV MODE
+============================================================
+
+Must support:
+- watch mode (auto rebuild on changes)
+- partial reload (core modules only)
+- plugin hot reload integration
+- config reload without rebuild
+
+Dev mode must prioritize speed over optimization.
+
+============================================================
+BUILD CACHING SYSTEM
+============================================================
+
+Must implement caching:
+- object file caching
+- dependency caching
+- optional compiler cache (ccache/sccache)
+
+Goal:
+- near-instant incremental builds
+
+============================================================
+ERROR REPORTING
+============================================================
+
+Build system must provide:
+- clear error messages
+- file + line mapping
+- dependency trace
+- failure root cause
+
+No cryptic compiler-only output.
+
+============================================================
+TEST INTEGRATION
+============================================================
+
+Build system must integrate:
+
+- unit tests
+- fuzz tests
+- stress tests
+- benchmarks
+
+Commands:
+- interm test
+- interm bench
+- interm fuzz
+
+============================================================
+DEBUGGING SUPPORT
+============================================================
+
+Must support:
+- debug symbol generation
+- gdb/lldb integration
+- runtime tracing hooks
+- profiling build flags
+
+============================================================
+CI/CD READY DESIGN
+============================================================
+
+Must support:
+- automated builds
+- multi-platform CI pipelines
+- test gating
+- performance regression detection
+
+============================================================
+PLUGIN BUILD SUPPORT
+============================================================
+
+Plugins must:
+- compile separately
+- link against stable API headers
+- not require full engine rebuild
+
+Support:
+- plugin SDK headers
+- versioned ABI
+
+============================================================
+SAFETY RULES
+============================================================
+
+Build system must prevent:
+- unsafe compiler flags in release builds
+- incompatible ABI combinations
+- missing dependency builds
+- silent build failures
+
+============================================================
+PERFORMANCE GOALS
+============================================================
+
+Build system must aim for:
+- sub-second incremental builds (small changes)
+- <10s full rebuild (target)
+- parallel compilation scaling with CPU cores
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+The build system must behave like:
+- a modern industrial-grade compiler pipeline controller
+
+It must be:
+- fast
+- predictable
+- reproducible
+- cross-platform
+- developer-friendly
+
+============================================================
+FINAL RULE
+============================================================
+
+If the build system is slow or unreliable:
+the entire INTERM development process becomes unusable.

@@ -1,0 +1,330 @@
+SYSTEM: GIT INTEGRATION + VERSION CONTROL UI ENGINE
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core) + Python (tooling/extensions)
+ROLE: Native Git integration, diff engine, and version control UX layer
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a deeply integrated Git system for INTERM that provides:
+
+- repository awareness
+- real-time diff viewing
+- staging/unstaging workflows
+- commit management
+- branch navigation
+- blame tracking
+- merge conflict resolution UI
+
+Git must feel native inside the editor, not external.
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+Git is not a tool — it is a state layer of the editor.
+
+Rules:
+- editor buffer state and git state are tightly linked
+- operations must be visual and incremental
+- no shell-dependent workflows for core operations
+
+============================================================
+ARCHITECTURE OVERVIEW
+============================================================
+
+Git system consists of:
+
+1. Repository Manager
+2. Diff Engine
+3. Index (Staging Area) Manager
+4. Commit Engine
+5. Branch Manager
+6. Blame Engine
+7. Merge Conflict Resolver
+8. History Viewer
+
+============================================================
+REPOSITORY DETECTION SYSTEM
+============================================================
+
+Must detect:
+
+- git root automatically
+- submodules
+- bare repositories (future support)
+- multi-repo workspaces
+
+Rules:
+- detection is async
+- cached for performance
+- updates on file system events
+
+============================================================
+DIFF ENGINE (CORE COMPONENT)
+
+Must support:
+
+- line-level diff
+- word-level diff (optional)
+- character-level diff (for precision edits)
+
+Diff types:
+- staged vs working tree
+- working tree vs HEAD
+- commit vs commit comparison
+
+============================================================
+REAL-TIME DIFFING
+
+Must update diffs as user types:
+
+- incremental diff calculation
+- debounced updates
+- background processing via async runtime
+
+Rules:
+- never block editing
+- always show partial results if needed
+
+============================================================
+STAGING SYSTEM
+
+Must support:
+
+- stage file
+- unstage file
+- stage hunks
+- partial staging (line-based)
+
+UI must show:
+
+- staged vs unstaged indicators
+- per-line status markers
+
+============================================================
+COMMIT SYSTEM
+
+Must support:
+
+- commit creation
+- commit message editor
+- amend commits
+- commit preview
+
+Rules:
+- commits must be validated before execution
+- empty commits must be blocked unless forced
+
+============================================================
+BRANCH MANAGEMENT
+
+Must support:
+
+- branch listing
+- branch switching
+- branch creation
+- remote tracking branches
+
+UI features:
+- branch indicator in statusline
+- quick branch switch palette
+
+============================================================
+BLAME ENGINE
+
+Must provide:
+
+- line-level blame info
+- commit metadata
+- author tracking
+- timestamp info
+
+Must be:
+- lazy-loaded (on demand)
+- cached per file
+
+============================================================
+MERGE CONFLICT SYSTEM
+
+Must provide visual resolution:
+
+Conflict UI must show:
+- incoming changes
+- current changes
+- base version
+
+Resolution modes:
+- accept current
+- accept incoming
+- manual merge editor
+
+Rules:
+- conflicts must never corrupt buffer state
+- resolution must be reversible
+
+============================================================
+HISTORY VIEWER
+
+Must support:
+
+- commit graph visualization (text-based)
+- commit browsing
+- file history navigation
+- diff between commits
+
+Must integrate with:
+- command palette
+- buffer system
+
+============================================================
+ASYNC GIT EXECUTION
+
+All Git operations must be async:
+
+- git status
+- git diff
+- git log
+- git fetch/pull/push
+
+Rules:
+- no blocking shell calls
+- subprocess isolation required
+- cancellation supported
+
+============================================================
+CACHE SYSTEM
+
+Must cache:
+
+- repository status
+- diffs
+- commit history
+- branch metadata
+
+Cache must:
+- update incrementally
+- invalidate on fs events
+
+============================================================
+EVENT INTEGRATION
+
+Git system emits:
+
+- git_repo_detected
+- git_status_changed
+- git_diff_updated
+- git_branch_changed
+- git_commit_created
+- git_merge_conflict_detected
+
+============================================================
+INTEGRATION WITH BUFFER SYSTEM
+
+Buffer and Git must be synchronized:
+
+- buffer changes trigger diff updates
+- staged changes reflect buffer state
+- undo system integrates with staging
+
+============================================================
+INTEGRATION WITH RENDERER
+
+Git UI elements:
+
+- gutter indicators
+- diff highlights
+- statusline branch info
+- staging markers
+
+Must be:
+- minimal overhead
+- diff-driven rendering
+
+============================================================
+INTEGRATION WITH INPUT SYSTEM
+
+Keybindings must support:
+
+- stage file shortcut
+- commit shortcut
+- diff navigation
+- conflict resolution shortcuts
+
+============================================================
+INTEGRATION WITH LSP + SYNTAX ENGINE
+
+Git-aware features:
+
+- syntax highlighting of diffs
+- LSP-aware refactor commits (future)
+- semantic-aware diff grouping (future)
+
+============================================================
+ERROR HANDLING
+
+Must handle:
+
+- corrupted repos
+- missing git binaries
+- merge failures
+- network failures
+
+Rules:
+- never crash editor
+- fallback to read-only mode if needed
+
+============================================================
+PERFORMANCE REQUIREMENTS
+
+Must achieve:
+
+- instant status updates (cached)
+- fast diff rendering for large files
+- background processing for heavy repos
+
+============================================================
+DEBUGGING TOOLS
+
+Must include:
+
+- git operation trace viewer
+- diff timing profiler
+- repository state inspector
+- staging history debugger
+
+============================================================
+PLUGIN INTEGRATION
+
+Plugins may:
+
+- extend git commands
+- add custom workflows
+- integrate external git services
+
+But must NOT:
+- bypass core git engine
+- mutate repo state without API calls
+
+============================================================
+DESIGN GOAL SUMMARY
+
+Git system should behave like:
+
+- a fully integrated version control layer inside the editor, not an external tool
+
+It must be:
+- fast
+- visual
+- incremental
+- reliable
+- deeply integrated
+
+============================================================
+FINAL RULE
+
+If Git feels external or slow:
+the developer experience collapses.
+
+It must feel instant and native.

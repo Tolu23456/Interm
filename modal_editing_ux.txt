@@ -1,0 +1,451 @@
+SUBSYSTEM: MODAL EDITING UX SYSTEM
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core) + Python (optional extensions)
+ROLE: User interaction model + editing experience layer
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a modern modal editing system for INTERM that improves on traditional Vim-style UX while preserving efficiency.
+
+The system must feel:
+- intuitive
+- discoverable
+- fast
+- consistent
+- ergonomic
+- low cognitive load
+
+It must NOT feel:
+- cryptic
+- undocumented
+- overly memorization-heavy
+- inconsistent across modes
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+Modes are NOT just states — they are interaction contexts.
+
+Each mode must:
+- clearly communicate what actions are possible
+- visually guide the user
+- reduce uncertainty
+- support progressive discovery
+
+============================================================
+MODAL SYSTEM OVERVIEW
+============================================================
+
+INTERM must support the following core modes:
+
+1. NORMAL MODE
+   - navigation
+   - commands
+   - object manipulation
+
+2. INSERT MODE
+   - text entry
+   - minimal interference
+   - smart suggestions optional
+
+3. VISUAL MODE
+   - selection-based editing
+   - range operations
+
+4. MULTI-CURSOR MODE
+   - parallel editing
+   - synchronized actions
+
+5. COMMAND MODE
+   - command execution
+   - fuzzy command search
+
+6. SEARCH MODE
+   - incremental search
+   - regex optional
+
+7. REPLACE MODE
+   - interactive replacement
+   - preview support
+
+8. TERMINAL MODE
+   - embedded shell interaction
+
+============================================================
+MODE TRANSITION DESIGN
+============================================================
+
+Mode switching must be:
+- predictable
+- fast
+- visually indicated
+- context-aware
+
+Transitions must:
+- preserve cursor state where possible
+- preserve selections where meaningful
+- avoid disorientation
+
+Example transitions:
+- insert → normal (ESC)
+- normal → insert (i, a, o, etc.)
+- normal → visual (v, V)
+- normal → command (:)
+
+============================================================
+VISUAL FEEDBACK SYSTEM
+============================================================
+
+Every mode MUST be visually identifiable.
+
+Use:
+- statusline indicators
+- cursor shape changes
+- subtle color changes
+- mode-specific hints
+
+Examples:
+- NORMAL: neutral indicator
+- INSERT: active input indicator
+- VISUAL: highlighted selection mode
+- COMMAND: prompt line active
+
+============================================================
+CURSOR DESIGN
+============================================================
+
+Cursor must adapt per mode:
+
+- block cursor → NORMAL mode
+- vertical bar → INSERT mode
+- highlighted block → VISUAL mode
+- multi-cursor markers → MULTI-CURSOR mode
+
+Cursor must:
+- animate subtly (optional)
+- remain consistent
+- never confuse position
+
+============================================================
+SELECTION SYSTEM
+============================================================
+
+Selections must be:
+- range-based
+- composable
+- mode-aware
+
+Selection types:
+- character selection
+- line selection
+- block selection
+- syntax-aware selection
+- structural selection (AST-based later)
+
+Selections must integrate with:
+- commands
+- multicursor
+- search
+- replace
+
+============================================================
+COMMAND SYSTEM UX
+============================================================
+
+Commands must be:
+- searchable
+- discoverable
+- composable
+- consistent
+
+Command entry must support:
+- fuzzy matching
+- autocomplete
+- history
+- previews
+
+Example:
+:format
+:buffer close
+:git commit
+:lsp rename
+
+============================================================
+DISCOVERABILITY SYSTEM
+============================================================
+
+A critical improvement over Vim-like editors.
+
+INTERM must include:
+- contextual hints
+- inline suggestions
+- keybinding hints
+- command previews
+- mode-specific tooltips
+
+Goal:
+reduce reliance on memorization.
+
+============================================================
+KEYBINDING DESIGN PHILOSOPHY
+============================================================
+
+Keybindings must be:
+- ergonomic
+- consistent
+- remappable
+- layered
+- discoverable
+
+Support:
+- leader keys
+- chord sequences
+- modal bindings
+- context-sensitive bindings
+
+Avoid:
+- conflicting bindings
+- hidden behavior
+- overloaded shortcuts without explanation
+
+============================================================
+MOTION SYSTEM
+============================================================
+
+Motions must be:
+- composable
+- predictable
+- reusable across modes
+
+Examples:
+- word navigation
+- line navigation
+- paragraph navigation
+- symbol navigation
+- syntax-aware navigation (future)
+
+Motions must integrate with:
+- visual mode
+- commands
+- multicursor
+
+============================================================
+MULTI-CURSOR UX
+============================================================
+
+Multi-cursor must feel native.
+
+Features:
+- add cursor at selection
+- select all matches
+- regex-based cursor creation
+- column editing
+- synchronized insert/delete
+
+Rules:
+- all cursors behave consistently
+- operations must be atomic across cursors
+- conflicts must be resolved predictably
+
+============================================================
+INSERT MODE UX IMPROVEMENTS
+============================================================
+
+Insert mode must be enhanced beyond Vim:
+
+Include:
+- inline completion suggestions
+- snippet expansion
+- ghost text (optional)
+- AI suggestions (optional layer)
+- indentation intelligence
+
+Insert mode must still remain:
+- fast
+- non-blocking
+- minimal latency
+
+============================================================
+VISUAL MODE UX
+============================================================
+
+Visual mode must support:
+- granular selection control
+- multiple selection regions
+- syntax-aware selection expansion
+- live preview of operations
+
+Commands must preview effects before execution.
+
+============================================================
+SEARCH UX
+============================================================
+
+Search must be:
+- incremental
+- real-time
+- highlighted
+- context-aware
+
+Support:
+- regex search
+- fuzzy search (optional hybrid)
+- multi-file search (future integration)
+
+UX must show:
+- match count
+- current match index
+- preview window (optional)
+
+============================================================
+REPLACE UX
+============================================================
+
+Replace must support:
+- per-match confirmation
+- batch replace
+- preview diff view
+- undo grouping
+
+Must prevent accidental mass edits.
+
+============================================================
+STATUSLINE DESIGN
+============================================================
+
+Statusline must show:
+- current mode
+- file name
+- cursor position
+- git branch (if available)
+- diagnostics count
+- encoding info
+- LSP status
+
+Must be:
+- minimal
+- readable
+- non-distracting
+
+============================================================
+COMMAND PALETTE UX
+============================================================
+
+Command palette must:
+- be fuzzy-search driven
+- support categories
+- show previews
+- support recent commands
+- support plugin commands
+
+Must feel like:
+- VSCode command palette
+but terminal-native.
+
+============================================================
+ERROR UX
+============================================================
+
+Errors must be:
+- non-blocking
+- visible but not intrusive
+- context-aware
+
+Examples:
+- inline diagnostics
+- statusline warnings
+- popup notifications
+
+============================================================
+NOTIFICATION SYSTEM
+============================================================
+
+Notifications must:
+- fade or dismiss automatically
+- not interrupt typing
+- stack cleanly
+- be categorized (info/warn/error)
+
+============================================================
+THEME INTEGRATION
+============================================================
+
+UX must support:
+- dark themes
+- light themes
+- high contrast mode
+- customizable colors
+
+All UI components must be theme-aware.
+
+============================================================
+PERFORMANCE UX CONSIDERATION
+============================================================
+
+UX features must NOT:
+- slow down rendering
+- introduce blocking logic
+- cause redraw spikes
+
+All UX enhancements must be:
+- incremental
+- cached
+- async-compatible
+
+============================================================
+ACCESSIBILITY DESIGN
+============================================================
+
+Must support:
+- high contrast mode
+- reduced motion mode
+- keybinding customization
+- readable font scaling (terminal dependent)
+
+============================================================
+PLUGIN UX INTEGRATION
+============================================================
+
+Plugins may:
+- register new modes
+- extend commands
+- add UI overlays
+
+But must:
+- follow UX consistency rules
+- respect mode system
+- avoid breaking core UX flow
+
+============================================================
+DEBUGGING UX MODE
+============================================================
+
+Provide developer UX tools:
+- keypress inspector
+- mode transition viewer
+- command trace logs
+- rendering overlay debug
+
+============================================================
+UX GOAL SUMMARY
+============================================================
+
+INTERM modal system should feel:
+- modern
+- intuitive
+- discoverable
+- fast
+- consistent
+
+It must improve on traditional modal editors instead of copying them.
+
+============================================================
+FINAL RULE
+============================================================
+
+If UX is confusing, the editor fails — regardless of performance or power.
+
+Clarity is a first-class engineering requirement.

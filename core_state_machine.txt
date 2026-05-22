@@ -1,0 +1,303 @@
+SYSTEM: CORE STATE MACHINE + GLOBAL EDITOR ORCHESTRATION LAYER
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core) + Python (extensions/tools)
+ROLE: Global state coordination, mode management, and system consistency layer
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a global state machine for INTERM that ensures all subsystems remain:
+
+- synchronized
+- consistent
+- deterministic
+- recoverable
+
+It defines how the editor behaves at any moment in time across:
+
+- modes
+- buffers
+- rendering
+- input
+- plugins
+- LSP
+- AI
+- Git
+- async tasks
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+There must be ONE source of truth for editor state transitions.
+
+Rules:
+- no subsystem manages global state independently
+- all state transitions go through the state machine
+- inconsistent states are invalid and must be corrected
+
+============================================================
+GLOBAL STATE MODEL
+============================================================
+
+struct EditorState {
+    mode;
+    active_buffer;
+    cursor_state;
+    selection_state;
+    layout_state;
+    lsp_state;
+    git_state;
+    ai_state;
+    plugin_state;
+    async_state;
+};
+
+State must be:
+- immutable snapshots per transition
+- versioned
+- traceable
+
+============================================================
+STATE MACHINE OVERVIEW
+============================================================
+
+States are composed of:
+
+1. Mode State (interaction context)
+2. Buffer State (editing context)
+3. System State (services health)
+4. UI State (render layout)
+5. Background State (async tasks)
+
+All must evolve together coherently.
+
+============================================================
+MODE STATE TRANSITIONS
+
+Supported modes:
+
+- NORMAL
+- INSERT
+- VISUAL
+- COMMAND
+- SEARCH
+- REPLACE
+- TERMINAL
+
+Rules:
+- mode transitions must be validated
+- illegal transitions must be rejected or normalized
+- transition hooks must trigger events
+
+============================================================
+STATE TRANSITION ENGINE
+
+All transitions must go through:
+
+transition_state(current, event) → new_state
+
+Rules:
+- deterministic output for same input
+- no side effects inside transition logic
+- side effects handled via event system
+
+============================================================
+STATE SNAPSHOTS
+
+System must maintain:
+
+- current state snapshot
+- previous state snapshot
+- optional history stack
+
+Uses:
+- undo/redo system
+- debugging
+- crash recovery
+
+============================================================
+STATE CONSISTENCY RULES
+
+The system must guarantee:
+
+- buffer state matches renderer state
+- cursor state matches input state
+- LSP state matches buffer version
+- Git state matches filesystem state
+
+If mismatch occurs:
+- reconciliation process must run automatically
+
+============================================================
+STATE RECONCILIATION ENGINE
+
+If inconsistencies are detected:
+
+Steps:
+1. detect mismatch
+2. isolate subsystem divergence
+3. re-sync authoritative source
+4. emit correction events
+5. re-render UI
+
+============================================================
+EVENT-DRIVEN STATE UPDATES
+
+All state changes must emit events:
+
+- state_mode_changed
+- state_buffer_updated
+- state_cursor_moved
+- state_layout_changed
+
+Rules:
+- state changes are not silent
+- events trigger subsystem updates
+
+============================================================
+ASYNC STATE COORDINATION
+
+State updates must integrate with async runtime:
+
+- long state computations are tasks
+- state transitions may be deferred safely
+- cancellation allowed during transitions
+
+============================================================
+CONCURRENCY MODEL
+
+Rules:
+
+- state transitions must be serialized
+- no parallel mutation of global state
+- read operations are concurrent-safe
+- write operations are strictly ordered
+
+============================================================
+UNDO/REDO SYSTEM INTEGRATION
+
+State machine powers undo/redo:
+
+- each state snapshot is reversible
+- actions map to state transitions
+- buffer edits tracked in state history
+
+============================================================
+PLUGIN STATE ISOLATION
+
+Plugins may:
+- observe state changes
+- request state transitions
+
+But must NOT:
+- directly mutate global state
+- bypass state machine
+
+Plugin state must be sandboxed.
+
+============================================================
+LSP STATE INTEGRATION
+
+State machine tracks:
+
+- active LSP servers
+- diagnostics state
+- completion state per buffer version
+
+Must ensure:
+- LSP responses match correct buffer snapshot
+
+============================================================
+AI STATE INTEGRATION
+
+AI state includes:
+
+- active requests
+- streaming sessions
+- context snapshots
+- cancellation state
+
+Must ensure:
+- AI output matches correct editor state version
+
+============================================================
+GIT STATE INTEGRATION
+
+Tracks:
+
+- repo status snapshot
+- staged/unstaged state
+- branch state
+- conflict state
+
+Must remain synchronized with buffer state.
+
+============================================================
+UI STATE INTEGRATION
+
+Tracks:
+
+- layout tree
+- active panels
+- overlays
+- popup stack
+
+Rules:
+- UI must always reflect state machine
+- no direct UI mutation outside state updates
+
+============================================================
+ERROR HANDLING
+
+If state becomes invalid:
+
+- rollback to last valid snapshot
+- isolate faulty subsystem
+- emit critical state error event
+
+System must never crash due to state corruption.
+
+============================================================
+DEBUGGING SYSTEM
+
+Must include:
+
+- state timeline viewer
+- transition inspector
+- diff between states
+- inconsistency detector
+- rollback simulator
+
+============================================================
+PERFORMANCE REQUIREMENTS
+
+State machine must:
+
+- handle rapid transitions (<1ms target)
+- avoid deep copying large structures
+- use structural sharing where possible
+- minimize locking overhead
+
+============================================================
+DESIGN GOAL SUMMARY
+
+State machine should behave like:
+
+- a deterministic control center for the entire editor
+
+It must be:
+- authoritative
+- consistent
+- predictable
+- recoverable
+- event-driven
+
+============================================================
+FINAL RULE
+
+If state is not consistent across subsystems:
+the entire editor becomes unreliable.
+
+This system is the “truth layer” of INTERM.

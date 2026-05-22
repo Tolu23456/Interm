@@ -1,0 +1,324 @@
+SYSTEM: INPUT + KEYBINDING + CHORD ENGINE
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core) + Python (configuration/extensions)
+ROLE: Input processing, keybinding resolution, and interaction control layer
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a powerful, flexible, and context-aware input system for INTERM that supports:
+
+- modal editing input (NORMAL, INSERT, VISUAL, etc.)
+- complex key chords
+- leader-key workflows
+- command palette bindings
+- plugin-defined shortcuts
+- context-sensitive input behavior
+
+It must be:
+- fast
+- deterministic
+- extensible
+- conflict-free (or conflict-resolvable)
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+Input is not just keypresses — it is structured intent.
+
+Every input event must be:
+- parsed
+- normalized
+- contextualized
+- resolved into actions
+
+============================================================
+INPUT PIPELINE
+============================================================
+
+Input flow:
+
+1. Raw key event captured
+2. Normalized into KeyEvent structure
+3. Passed through mode context
+4. Matched against binding rules
+5. Resolved into command/action
+6. Sent to event system
+
+No direct action should happen at capture stage.
+
+============================================================
+KEY EVENT STRUCTURE
+============================================================
+
+struct KeyEvent {
+    keycode;
+    modifiers;
+    timestamp;
+    repeat_count;
+    source_device;
+};
+
+Modifiers:
+- Ctrl
+- Alt
+- Shift
+- Meta/Super
+
+============================================================
+MODAL CONTEXT SYSTEM
+============================================================
+
+Input behavior depends on mode:
+
+- NORMAL mode → navigation + commands
+- INSERT mode → raw text input
+- VISUAL mode → selection manipulation
+- COMMAND mode → command resolution
+- SEARCH mode → query input
+
+Each mode has its own binding layer.
+
+============================================================
+KEYBINDING RESOLUTION SYSTEM
+============================================================
+
+Resolution order:
+
+1. Exact match (mode-specific)
+2. Chord match
+3. Leader-key sequence match
+4. Fallback global binding
+5. Plugin bindings
+6. Default system behavior
+
+If multiple matches exist:
+- prioritize by specificity
+- then by plugin priority
+- then by core rules
+
+============================================================
+CHORD ENGINE
+============================================================
+
+Supports multi-key sequences:
+
+Example:
+- Ctrl+K Ctrl+C
+- g g (go to top)
+- d d (delete line)
+- leader + f + f
+
+Rules:
+- chords have timeout windows
+- partial matches are tracked
+- incomplete sequences are buffered
+
+============================================================
+LEADER KEY SYSTEM
+============================================================
+
+Leader key enables extended commands:
+
+Example:
+leader = Space
+
+Bindings:
+- Space f f → file finder
+- Space g s → git status
+- Space a i → AI assistant
+
+Rules:
+- leader sequences must be discoverable
+- must support nesting
+- must be configurable
+
+============================================================
+CONTEXT-SENSITIVE BINDINGS
+============================================================
+
+Bindings can depend on context:
+
+- active buffer type
+- cursor position
+- selection state
+- LSP state
+- plugin state
+
+Example:
+- if inside function → "rename symbol"
+- if in search mode → "next match"
+
+============================================================
+CONFLICT RESOLUTION SYSTEM
+============================================================
+
+If two bindings conflict:
+
+Priority order:
+1. core system bindings
+2. user bindings
+3. plugin bindings
+4. temporary overrides
+
+Conflicts must be:
+- detected at startup
+- reported clearly
+- optionally resolved interactively
+
+============================================================
+INPUT BUFFERING SYSTEM
+============================================================
+
+To support chords and sequences:
+
+- inputs are temporarily buffered
+- buffer has timeout window
+- buffer resets after execution or timeout
+
+Must ensure:
+- no input loss
+- no input duplication
+
+============================================================
+REPEAT SYSTEM
+============================================================
+
+Supports repeatable actions:
+
+- '.' repeat last command
+- repeat macros
+- repeat multi-step actions
+
+Must track:
+- last executed command
+- last input sequence
+- last mutation state
+
+============================================================
+MACRO SYSTEM (FUTURE-READY)
+============================================================
+
+Input system must support recording:
+
+- keystroke macros
+- command macros
+- multi-mode workflows
+
+Macros must be:
+- replayable
+- editable (future)
+- safe (no infinite loops)
+
+============================================================
+COMMAND MAPPING INTEGRATION
+============================================================
+
+Input system integrates with:
+
+- Command API
+- Event System
+- Plugin System
+
+All resolved inputs become:
+→ commands or events
+
+============================================================
+PLUGIN INPUT EXTENSION
+============================================================
+
+Plugins may:
+
+- register keybindings
+- override bindings (with permission)
+- add chord sequences
+- define context rules
+
+But must NOT:
+- break core bindings silently
+- introduce blocking input logic
+
+============================================================
+INPUT LATENCY REQUIREMENTS
+============================================================
+
+Must achieve:
+
+- near-zero input lag (<5ms target)
+- immediate visual feedback
+- no blocking during resolution
+
+============================================================
+ERROR HANDLING
+============================================================
+
+Must handle:
+
+- invalid key sequences
+- unknown chords
+- plugin binding errors
+- recursive binding loops
+
+System must:
+- fail gracefully
+- fallback to safe default behavior
+
+============================================================
+DEBUGGING TOOLS
+============================================================
+
+Must include:
+
+- keypress inspector
+- chord sequence visualizer
+- binding resolution tracer
+- conflict detector
+- input latency profiler
+
+============================================================
+ACCESSIBILITY FEATURES
+============================================================
+
+Must support:
+
+- remappable keys
+- alternative bindings
+- reduced motion input mode
+- simplified keymaps
+
+============================================================
+PERFORMANCE REQUIREMENTS
+============================================================
+
+Input system must:
+
+- never block UI thread
+- use constant-time lookup where possible
+- minimize allocation during keypress handling
+- cache resolved bindings
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+Input system should behave like:
+
+- a real-time intent resolution engine, not a simple key mapper
+
+It must be:
+- fast
+- predictable
+- flexible
+- context-aware
+- extensible
+
+============================================================
+FINAL RULE
+============================================================
+
+If input becomes ambiguous or laggy:
+the entire editor feels broken instantly.
+
+This system must always prioritize responsiveness.

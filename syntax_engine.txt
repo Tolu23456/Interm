@@ -1,0 +1,341 @@
+SYSTEM: SYNTAX + PARSING + HIGHLIGHTING ENGINE
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core engine) + Python (tooling/extensions)
+ROLE: Code structure understanding, highlighting, and incremental parsing system
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a high-performance syntax system for INTERM that provides:
+
+- syntax highlighting
+- incremental parsing
+- structural code understanding
+- AST-aware operations (future-ready)
+- real-time updates during editing
+- multi-language support
+
+It must remain:
+- fast on large files
+- incremental (not full reparse every time)
+- memory efficient
+- LSP-compatible
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+Parsing is continuous, not one-time.
+
+The system must:
+- update only changed regions
+- reuse previous parse state
+- avoid full re-parsing except when necessary
+
+============================================================
+ARCHITECTURE OVERVIEW
+============================================================
+
+The syntax engine consists of:
+
+1. Incremental Parser Core
+2. Tokenizer Layer
+3. Syntax Tree Manager
+4. Highlighting Engine
+5. Language Grammar Loader
+6. Change Tracker
+7. Cache System
+
+============================================================
+PARSING MODEL
+============================================================
+
+Two-tier parsing approach:
+
+1. FAST TOKENIZATION
+   - lexical scanning
+   - lightweight token generation
+   - used for immediate rendering
+
+2. STRUCTURAL PARSING
+   - AST generation (incremental)
+   - deeper semantic structure
+   - used for advanced features
+
+============================================================
+INCREMENTAL PARSING SYSTEM
+============================================================
+
+When text changes:
+
+- detect affected region
+- invalidate only relevant nodes
+- reuse unchanged tree segments
+- reparse minimal subtree
+
+Goal:
+avoid full file reprocessing.
+
+============================================================
+TOKEN STRUCTURE
+============================================================
+
+struct Token {
+    type;
+    start_offset;
+    end_offset;
+    line;
+    column;
+    metadata;
+};
+
+Token types:
+- keyword
+- identifier
+- string
+- number
+- operator
+- comment
+- punctuation
+
+============================================================
+SYNTAX TREE STRUCTURE
+============================================================
+
+AST nodes must include:
+
+struct ASTNode {
+    type;
+    children;
+    start;
+    end;
+    parent;
+    metadata;
+};
+
+Rules:
+- tree must support partial updates
+- nodes must be immutable after creation
+- modifications produce new subtrees only
+
+============================================================
+CHANGE TRACKING SYSTEM
+============================================================
+
+Every buffer edit produces:
+
+- change range
+- inserted text
+- deleted text
+- version increment
+
+System must:
+- map edits to AST regions
+- trigger localized reparse
+
+============================================================
+GRAMMAR SYSTEM
+============================================================
+
+Languages are defined via grammar definitions:
+
+- token rules
+- syntax rules
+- injection rules
+- folding rules
+
+Support:
+- JSON grammar definitions
+- Tree-sitter compatibility (optional future)
+
+============================================================
+HIGHLIGHTING ENGINE
+============================================================
+
+Highlighting is derived from tokens + AST.
+
+Must support:
+
+- theme-based coloring
+- semantic highlighting (future LSP integration)
+- layered highlighting (syntax + diagnostics + selection)
+
+Rendering priority:
+1. selection highlight
+2. error highlight
+3. syntax highlight
+4. background effects
+
+============================================================
+CACHING SYSTEM
+============================================================
+
+Must cache:
+- tokenized segments
+- parsed AST regions
+- highlight spans
+
+Cache must:
+- be invalidated intelligently
+- avoid recomputation
+- support large files efficiently
+
+============================================================
+MULTI-LANGUAGE SUPPORT
+============================================================
+
+System must support:
+
+- C / C++
+- Python
+- JavaScript / TypeScript
+- Rust
+- Go
+- Markdown
+- Config formats
+
+Each language:
+- has isolated grammar
+- independent parsing rules
+- shared token interface
+
+============================================================
+PERFORMANCE REQUIREMENTS
+============================================================
+
+Must achieve:
+
+- real-time parsing (<16ms update target)
+- smooth highlighting on large files
+- minimal memory overhead
+- no full-file blocking operations
+
+============================================================
+INTEGRATION WITH BUFFER SYSTEM
+============================================================
+
+Syntax engine receives:
+
+- buffer change events
+- incremental updates
+- cursor movement context
+
+Must emit:
+- highlight updates
+- fold regions
+- structure updates
+
+============================================================
+INTEGRATION WITH RENDERER
+============================================================
+
+Renderer consumes:
+
+- token spans
+- highlight regions
+- AST-based decorations
+
+Must ensure:
+- no rendering lag due to parsing
+- diff-based updates only
+
+============================================================
+INTEGRATION WITH LSP
+============================================================
+
+Syntax engine works alongside LSP:
+
+- syntax engine = local structure
+- LSP = semantic intelligence
+
+Must combine:
+- syntax errors (local)
+- LSP diagnostics (remote)
+- unified display layer
+
+============================================================
+FOLDING SYSTEM
+============================================================
+
+Support code folding based on AST:
+
+- functions
+- classes
+- blocks
+- regions
+
+Folding must be:
+- fast
+- cached
+- recalculated incrementally
+
+============================================================
+ERROR RECOVERY
+============================================================
+
+Parser must:
+- recover from malformed code
+- continue parsing after errors
+- avoid cascading failures
+
+Strategy:
+- panic mode recovery
+- skip invalid tokens
+- resync at safe points
+
+============================================================
+DEBUGGING TOOLS
+============================================================
+
+Must include:
+- AST visualizer
+- token stream inspector
+- parse timing profiler
+- grammar debug mode
+
+============================================================
+PLUGIN INTEGRATION
+============================================================
+
+Plugins may:
+- add grammars
+- modify highlighting rules
+- inject syntax extensions
+
+But must NOT:
+- corrupt core AST structure
+- bypass incremental system
+
+============================================================
+SAFETY RULES
+============================================================
+
+- AST must never be partially mutated
+- parsing must never block UI thread
+- invalid grammars must fail safely
+- memory must be managed strictly
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+Syntax engine should behave like:
+
+- a live structural understanding layer of code inside the editor
+
+It must be:
+- fast
+- incremental
+- resilient
+- scalable
+- extensible
+
+============================================================
+FINAL RULE
+============================================================
+
+If parsing becomes slow or unstable:
+rendering and LSP systems will degrade immediately.
+
+This system must always remain lightweight and reliable.

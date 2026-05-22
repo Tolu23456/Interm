@@ -1,0 +1,386 @@
+SYSTEM: FINAL MISSING ARCHITECTURE LAYERS (COMPLETION SPEC)
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core) + Python (extensions/tools)
+ROLE: Runtime execution, startup, LSP, plugins, memory, AI, terminal backend, and performance systems
+
+============================================================
+OBJECTIVE
+============================================================
+
+This file defines all remaining missing systems required to transform INTERM from:
+
+→ architecture design  
+into  
+→ fully executable terminal editor system
+
+These are the FINAL foundational layers.
+
+============================================================
+1. STARTUP + BOOT SYSTEM
+============================================================
+
+SYSTEM: startup_boot_system
+
+RESPONSIBILITY:
+Controls how INTERM initializes from zero state to fully operational editor.
+
+BOOT ORDER:
+
+1. Terminal Backend Initialization
+2. Memory Allocator Setup
+3. Event System Startup
+4. Async Runtime Boot
+5. Core API Layer Initialization
+6. VFS Initialization
+7. Buffer System Startup
+8. Renderer Initialization
+9. Input System Activation
+10. Syntax Engine Load
+11. State Machine Activation
+12. Git System Initialization
+13. LSP Manager Startup
+14. Plugin System Load (sandboxed)
+15. AI Engine Initialization (optional)
+16. UI Layout Bootstrap
+
+RULES:
+- boot must be deterministic
+- each stage must validate success before proceeding
+- failures must fallback safely (safe mode)
+- partial boot allowed (degraded mode)
+
+FEATURES:
+- lazy subsystem loading
+- fast startup path (<10ms target cold start goal)
+- crash-safe recovery boot mode
+
+============================================================
+2. LSP INTEGRATION LAYER
+============================================================
+
+SYSTEM: lsp_integration_layer
+
+RESPONSIBILITY:
+Manages all language server communication.
+
+CORE FEATURES:
+
+- multi-LSP server support per workspace
+- request multiplexing
+- response batching
+- diagnostics merging system
+- semantic + syntax coordination
+
+LIFECYCLE:
+
+1. detect language
+2. start appropriate LSP server
+3. establish JSON-RPC channel
+4. register buffer context
+5. stream diagnostics/completions
+
+RULES:
+- LSP calls must be async
+- must never block UI thread
+- must cache responses per buffer version
+
+ADVANCED FEATURES:
+- multi-server conflict resolution
+- fallback LSP provider
+- incremental document sync
+
+============================================================
+3. ASYNC RUNTIME ENGINE
+============================================================
+
+SYSTEM: async_runtime_engine
+
+RESPONSIBILITY:
+Core execution engine for all non-blocking operations.
+
+CORE DESIGN:
+
+- task scheduler
+- priority queue system
+- thread pool executor
+- cancellation controller
+
+TASK TYPES:
+- IO tasks
+- rendering tasks
+- LSP tasks
+- AI tasks
+- plugin tasks
+
+RULES:
+- no blocking operations allowed in core thread
+- tasks must be cancellable
+- task priorities must be respected
+
+FEATURES:
+- work stealing scheduler
+- task batching
+- backpressure control
+- async event integration
+
+============================================================
+4. PLUGIN SANDBOX SYSTEM
+============================================================
+
+SYSTEM: plugin_sandbox_system
+
+RESPONSIBILITY:
+Secure execution environment for third-party extensions.
+
+FEATURES:
+
+- isolated execution context
+- permission-based API access
+- memory isolation (logical sandbox)
+- crash containment
+- plugin lifecycle control
+
+PLUGIN PERMISSIONS:
+- file access (restricted via VFS)
+- event subscription
+- UI extension
+- command registration
+- LSP interaction (limited)
+
+RULES:
+- plugins cannot access raw memory
+- plugins cannot bypass Core API layer
+- plugin crashes must never affect core
+
+ADVANCED:
+- plugin ABI version enforcement
+- hot reload support
+- plugin dependency graph validation
+
+============================================================
+5. COMMAND PALETTE SYSTEM
+============================================================
+
+SYSTEM: command_palette_system
+
+RESPONSIBILITY:
+Unified command execution interface for user interaction.
+
+FEATURES:
+
+- fuzzy search command lookup
+- context-aware command filtering
+- plugin command integration
+- history tracking
+- keyboard-driven execution
+
+COMMAND SOURCES:
+- core commands
+- plugin commands
+- git commands
+- lsp actions
+- ai commands
+
+RULES:
+- all commands resolve through command registry
+- execution is async-capable
+- results are event-driven
+
+ADVANCED:
+- semantic command ranking
+- usage-based suggestions
+- AI-assisted command prediction
+
+============================================================
+6. TESTING + DEBUGGING FRAMEWORK
+============================================================
+
+SYSTEM: testing_debugging_framework
+
+RESPONSIBILITY:
+Ensures system correctness, stability, and performance visibility.
+
+FEATURES:
+
+- unit testing for core modules
+- integration testing across subsystems
+- fuzz testing (buffer, parser, VFS)
+- regression testing
+- runtime debug console
+
+DEBUG TOOLS:
+- event trace viewer
+- state machine inspector
+- render pipeline debugger
+- memory usage profiler
+- async task tracker
+
+RULES:
+- testing must not affect production performance
+- debug tools must be optional and modular
+
+============================================================
+7. MEMORY ALLOCATION MODEL
+============================================================
+
+SYSTEM: memory_allocation_model
+
+RESPONSIBILITY:
+Defines memory safety, performance, and allocation strategy.
+
+CORE DESIGN:
+
+- arena allocators for buffers
+- pool allocators for frequent objects
+- stack allocation for temporary operations
+- zero-copy operations where possible
+
+ISOLATION:
+- plugin memory isolation
+- subsystem memory boundaries
+- controlled cross-module memory sharing
+
+FEATURES:
+- memory snapshot system
+- leak detection (debug mode)
+- allocation profiling
+
+RULES:
+- no uncontrolled heap usage in hot paths
+- all allocations must be traceable in debug mode
+
+============================================================
+8. TERMINAL BACKEND ABSTRACTION
+============================================================
+
+SYSTEM: terminal_backend_abstraction
+
+RESPONSIBILITY:
+Provides compatibility layer across terminal environments.
+
+FEATURES:
+
+- ANSI escape abstraction
+- Windows terminal support layer
+- Unicode rendering system
+- color capability detection
+- input/output normalization
+
+BACKENDS:
+- xterm-compatible
+- Windows ConHost
+- modern GPU terminals (future support)
+
+RULES:
+- renderer must never depend on raw terminal APIs directly
+- backend is swappable
+
+============================================================
+9. PERFORMANCE ENGINE
+============================================================
+
+SYSTEM: performance_engine
+
+RESPONSIBILITY:
+Ensures system remains fast under all conditions.
+
+FEATURES:
+
+- frame budget enforcement
+- latency tracking system
+- profiling hooks across subsystems
+- adaptive performance scaling
+
+MONITORING:
+- render FPS tracking
+- input latency tracking
+- async queue depth monitoring
+- memory pressure detection
+
+OPTIMIZATION:
+- lazy computation
+- caching across subsystems
+- workload prioritization
+
+RULES:
+- performance degradation must trigger adaptive fallback modes
+
+============================================================
+10. AI CONTEXT ENGINE
+============================================================
+
+SYSTEM: ai_context_engine
+
+RESPONSIBILITY:
+Builds structured context for AI systems inside editor.
+
+FEATURES:
+
+- buffer summarization system
+- token window management
+- semantic context extraction
+- multi-buffer awareness
+- history compression
+
+AI PIPELINE:
+
+1. capture editor state
+2. extract relevant context
+3. compress history intelligently
+4. send to AI provider
+5. stream response back
+
+ADVANCED:
+- multi-model routing (local + remote)
+- context caching per project
+- AI memory persistence layer (optional)
+
+RULES:
+- AI must never block editor flow
+- AI requests must be cancellable
+- context must respect privacy boundaries
+
+============================================================
+FINAL SYSTEM INTEGRATION GOAL
+============================================================
+
+All systems in this file connect to the earlier architecture:
+
+- Event System → communication backbone
+- State Machine → truth layer
+- Core API → interface layer
+- Async Runtime → execution layer
+- VFS → data layer
+- Renderer → UI layer
+- Input → interaction layer
+
+============================================================
+FINAL ARCHITECTURE SUMMARY
+============================================================
+
+INTERM is now fully defined as:
+
+A modular, event-driven, async-first terminal IDE engine with:
+
+- plugin ecosystem
+- AI integration
+- LSP intelligence
+- Git-native workflows
+- virtual filesystem abstraction
+- deterministic state machine
+- high-performance rendering engine
+
+============================================================
+FINAL RULE
+============================================================
+
+If any subsystem bypasses:
+- event system
+- core API layer
+- state machine
+
+the architecture is considered invalid.
+
+============================================================
+END OF SPECIFICATION
+============================================================

@@ -1,0 +1,329 @@
+SYSTEM: EVENT BUS + MESSAGE DISPATCH ARCHITECTURE
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core) + Python (listeners/extensions)
+ROLE: Cross-subsystem communication backbone
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a high-performance, fully asynchronous event system that connects all subsystems in INTERM.
+
+This system replaces:
+- direct function coupling
+- shared state communication
+- blocking cross-module calls
+
+It becomes the central nervous system of the editor.
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+Everything communicates through events.
+
+Rules:
+- no subsystem should directly call another subsystem internally
+- all communication should be event-driven or API-driven
+- events must be immutable and traceable
+
+============================================================
+EVENT SYSTEM OVERVIEW
+============================================================
+
+The system consists of:
+
+1. Event Bus (core dispatcher)
+2. Event Registry (type system)
+3. Subscription Manager
+4. Async Event Queue
+5. Event Filter Engine
+6. Event Logger / Trace System
+
+============================================================
+EVENT FLOW MODEL
+============================================================
+
+Event lifecycle:
+
+1. Event created
+2. Event validated
+3. Event queued
+4. Event dispatched asynchronously
+5. Subscribers receive event
+6. Optional event response emitted
+
+Flow must be non-blocking at all stages.
+
+============================================================
+EVENT STRUCTURE
+============================================================
+
+struct Event {
+    event_id;
+    event_type;
+    timestamp;
+    source;
+    payload;
+    priority;
+    metadata;
+};
+
+Rules:
+- events are immutable after creation
+- payload must be structured and typed
+- no hidden mutation allowed
+
+============================================================
+EVENT TYPES
+============================================================
+
+Core event categories:
+
+BUFFER EVENTS:
+- buffer_insert
+- buffer_delete
+- buffer_update
+- buffer_snapshot_created
+
+RENDER EVENTS:
+- render_request
+- render_invalidate
+- render_cursor_update
+
+INPUT EVENTS:
+- key_press
+- mouse_event
+- command_triggered
+
+LSP EVENTS:
+- diagnostics_update
+- completion_ready
+- hover_ready
+
+ASYNC EVENTS:
+- task_completed
+- task_failed
+- task_cancelled
+
+PLUGIN EVENTS:
+- plugin_loaded
+- plugin_unloaded
+- plugin_error
+
+AI EVENTS:
+- ai_response_chunk
+- ai_task_complete
+
+============================================================
+EVENT PRIORITY SYSTEM
+============================================================
+
+Events must support priority levels:
+
+- CRITICAL (UI safety, input handling)
+- HIGH (render updates)
+- NORMAL (LSP updates)
+- LOW (background processing)
+- IDLE (logging, indexing)
+
+Priority determines dispatch order.
+
+============================================================
+EVENT BUS DESIGN
+============================================================
+
+Event Bus must:
+- enqueue events
+- dispatch asynchronously
+- prevent blocking operations
+- batch low-priority events
+- preserve ordering guarantees per source
+
+============================================================
+SUBSCRIPTION MODEL
+============================================================
+
+Subscribers can register for events:
+
+- specific event types
+- wildcard event categories
+- filtered event streams
+
+Example:
+subscribe("buffer_update", callback)
+subscribe("lsp.*", callback)
+
+Rules:
+- subscriptions must be lightweight
+- must support dynamic add/remove
+- must not leak memory
+
+============================================================
+ASYNC DISPATCH MODEL
+============================================================
+
+Events are processed via:
+
+- main event loop integration
+- async runtime task system
+- worker-assisted dispatch (optional)
+
+Rules:
+- event dispatch must never block UI thread
+- slow subscribers must be isolated
+
+============================================================
+EVENT FILTERING SYSTEM
+============================================================
+
+Filters allow conditional handling:
+
+- by event type
+- by source subsystem
+- by metadata
+- by priority level
+
+Example:
+only receive buffer events for active file
+
+============================================================
+EVENT BATCHING SYSTEM
+============================================================
+
+To improve performance:
+
+- multiple low-priority events can be batched
+- redundant render events are merged
+- repeated updates are coalesced
+
+Example:
+10 cursor_move events → 1 final state event
+
+============================================================
+EVENT ORDERING GUARANTEES
+============================================================
+
+Must guarantee:
+
+- per-source ordering
+- per-stream consistency
+- no event reordering within same category unless batched
+
+============================================================
+EVENT BACKPRESSURE CONTROL
+============================================================
+
+System must prevent overload:
+
+- drop low-priority events if queue is full (configurable)
+- throttle high-frequency events
+- merge redundant updates
+
+============================================================
+EVENT PERSISTENCE (DEBUG MODE)
+============================================================
+
+In debug mode:
+- all events are logged
+- event traces are stored
+- replay capability enabled
+
+Used for:
+- crash reproduction
+- performance debugging
+- subsystem tracing
+
+============================================================
+ERROR HANDLING
+============================================================
+
+Event system must:
+- never crash on malformed event
+- isolate faulty subscribers
+- log and continue dispatching
+
+Subscriber failure rules:
+- failed subscriber is disabled temporarily
+- does not affect other subscribers
+
+============================================================
+PERFORMANCE REQUIREMENTS
+============================================================
+
+Event system must:
+- handle thousands of events per second
+- avoid allocation overhead per event where possible
+- support lock-minimized queueing
+- maintain low latency (<1ms dispatch target for critical events)
+
+============================================================
+INTEGRATION WITH CORE SYSTEMS
+============================================================
+
+EVENT SYSTEM CONNECTS EVERYTHING:
+
+- Buffer → emits change events
+- Renderer → consumes render events
+- LSP → emits diagnostics/completion events
+- AI → emits streaming events
+- Plugins → emit custom events
+- Async runtime → uses events for task state
+
+============================================================
+DEBUGGING TOOLS
+============================================================
+
+Must include:
+
+- event inspector (live stream view)
+- event timeline viewer
+- source tracing tool
+- performance heatmap
+- subscriber impact analysis
+
+============================================================
+PLUGIN INTEGRATION
+============================================================
+
+Plugins may:
+- subscribe to events
+- emit custom events
+- filter event streams
+
+But must NOT:
+- block event dispatch
+- mutate core event data
+- interfere with system-level events
+
+============================================================
+SAFETY RULES
+============================================================
+
+- events are immutable
+- no direct subsystem coupling allowed
+- no synchronous cross-subsystem calls via events
+- no event recursion loops allowed
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+Event system should behave like:
+
+- a real-time message bus inside an operating system kernel
+
+It must be:
+- fast
+- deterministic
+- isolated
+- scalable
+- observable
+
+============================================================
+FINAL RULE
+============================================================
+
+If the event system fails, everything in INTERM becomes tightly coupled and unstable.
+
+It is a core architectural backbone.

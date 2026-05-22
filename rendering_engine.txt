@@ -1,0 +1,451 @@
+SUBSYSTEM: TERMINAL RENDERING ENGINE
+PROJECT: IN-TERMINAL EDITOR (interm or INTERM)
+LANGUAGE: C (core implementation)
+ROLE: High-performance terminal UI renderer
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design and implement a modern terminal rendering engine for Interm Editor.
+
+This engine is responsible for:
+- drawing the entire editor UI inside a terminal
+- minimizing redraw cost
+- maintaining smooth visual updates
+- handling Unicode + complex text
+- managing viewport rendering
+- supporting multiple UI layers (buffers, popups, statusline, etc.)
+
+The renderer must feel:
+- instantaneous
+- flicker-free
+- minimal overhead
+- structurally clean
+- cache-aware
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+The renderer must NEVER redraw the full screen unnecessarily.
+
+Instead, it must use:
+- dirty region tracking
+- diff-based rendering
+- frame caching
+- incremental updates
+- batched terminal writes
+
+Rendering must be treated like a real-time graphics pipeline.
+
+============================================================
+RENDERING PIPELINE OVERVIEW
+============================================================
+
+The rendering system should be structured as:
+
+1. State Collection Phase
+   - collect UI state from all subsystems
+   - buffers, cursor, selections, UI overlays
+
+2. Layout Phase
+   - compute screen layout
+   - determine visible regions
+   - calculate viewport offsets
+
+3. Diff Generation Phase
+   - compare previous frame vs current frame
+   - identify changed cells only
+
+4. Render Command Generation
+   - convert diff into terminal escape sequences
+   - batch commands
+
+5. Flush Phase
+   - write to stdout in a single optimized batch
+
+============================================================
+SCREEN MODEL
+============================================================
+
+The screen is modeled as a grid:
+
+struct Cell {
+    char32_t character;
+    uint32_t fg_color;
+    uint32_t bg_color;
+    uint8_t style_flags;
+};
+
+Each frame maintains:
+- current_screen_buffer
+- previous_screen_buffer
+- dirty_map
+
+============================================================
+DIRTY REGION SYSTEM
+============================================================
+
+The renderer must track:
+- changed rows
+- changed columns
+- changed UI regions
+- cursor movement changes
+- popup overlays
+- scrolling regions
+
+Dirty regions must:
+- merge overlapping updates
+- minimize redraw area
+- support partial line updates
+
+============================================================
+DIFFING STRATEGY
+============================================================
+
+Use a hybrid diff system:
+
+1. Row-level comparison (fast rejection)
+2. Cell-level comparison (precise updates)
+3. Hash-based row skipping (optional optimization)
+
+Each frame:
+- compare previous vs current buffer
+- only emit changes
+
+Avoid full-screen redraws under all normal conditions.
+
+============================================================
+TEXT RENDERING MODEL
+============================================================
+
+Must support:
+- UTF-8 decoding
+- wide characters (CJK support)
+- emoji rendering
+- combining characters
+- ligatures (optional)
+- grapheme clustering (important)
+
+IMPORTANT:
+A “character” is NOT always one byte or one column.
+
+Must compute:
+- display width per glyph
+- grapheme cluster boundaries
+
+============================================================
+CURSOR SYSTEM
+============================================================
+
+Cursor rendering must support:
+- single cursor
+- multiple cursors
+- selection highlights
+- blinking cursor (configurable)
+- block/underline/beam styles
+
+Cursor rendering is layered ABOVE text rendering.
+
+============================================================
+LAYERS SYSTEM
+============================================================
+
+Rendering must support multiple layers:
+
+Layer 1: Base text buffer
+Layer 2: Syntax highlighting
+Layer 3: Selections
+Layer 4: Cursor(s)
+Layer 5: Diagnostics (LSP)
+Layer 6: UI overlays (popups, menus)
+Layer 7: Statusline / commandline
+
+Each layer must be composable and independent.
+
+============================================================
+TERMINAL OUTPUT OPTIMIZATION
+============================================================
+
+Rendering must minimize:
+- ANSI escape sequences
+- cursor movements
+- screen clears
+- redundant color changes
+
+Optimizations:
+- group adjacent cell writes
+- avoid repeated style changes
+- batch cursor repositioning
+- reuse formatting state
+
+============================================================
+ANSI STRATEGY
+============================================================
+
+Use ANSI escape codes for:
+- cursor positioning
+- color control (true color RGB)
+- styling (bold, underline, dim, etc.)
+- screen manipulation
+
+Avoid:
+- full screen clear unless necessary
+- excessive cursor jumps
+
+============================================================
+SCROLLING OPTIMIZATION
+============================================================
+
+Scrolling should:
+- shift buffer pointers instead of redrawing
+- reuse previous frame where possible
+- only render newly exposed lines
+
+============================================================
+VIEWPORT SYSTEM
+============================================================
+
+Viewport must support:
+- horizontal scrolling
+- vertical scrolling
+- smooth movement
+- partial visibility rendering
+
+Must handle:
+- large files
+- wrapped lines
+- split panes
+
+Each viewport is independent but shares renderer core.
+
+============================================================
+MULTI-PANE SUPPORT
+============================================================
+
+Renderer must support:
+- vertical splits
+- horizontal splits
+- nested splits
+
+Each pane has:
+- independent buffer view
+- independent cursor(s)
+- independent scroll state
+
+============================================================
+POPUP SYSTEM
+============================================================
+
+Support floating UI elements:
+- command palette
+- fuzzy finder
+- autocomplete dropdown
+- diagnostics popup
+
+Popups must:
+- not break base buffer rendering
+- overlay cleanly
+- support transparency-like behavior (simulated)
+
+============================================================
+STATUSLINE + COMMANDLINE
+============================================================
+
+Statusline must:
+- be always visible or configurable
+- update minimally
+- support dynamic content
+
+Command line must:
+- render input state
+- show suggestions
+- support interactive updates
+
+============================================================
+PERFORMANCE GOALS
+============================================================
+
+Renderer must achieve:
+- 60+ FPS equivalent responsiveness in terminal constraints
+- minimal CPU usage during idle
+- minimal redraw operations
+- fast diff computation (<1ms typical frames)
+
+Must scale to:
+- 1M+ line files (virtualized rendering only)
+- multiple panes
+- active LSP diagnostics
+
+============================================================
+MEMORY MANAGEMENT
+============================================================
+
+Renderer must:
+- reuse frame buffers
+- avoid per-frame allocations
+- preallocate screen grids
+- use memory pools for cells
+- avoid string fragmentation
+
+============================================================
+CONCURRENCY MODEL
+============================================================
+
+Rendering must run on UI thread ONLY.
+
+But it may receive:
+- async updates from buffers
+- async syntax updates
+- async LSP updates
+
+All updates must be queued safely.
+
+Use:
+- lock-free queues OR
+- minimal locking primitives
+
+============================================================
+EVENT-DRIVEN RENDERING
+============================================================
+
+Rendering is triggered by events:
+
+- buffer changed
+- cursor moved
+- scroll changed
+- LSP update
+- UI interaction
+- plugin update
+- theme change
+
+Idle loop should avoid unnecessary redraws.
+
+============================================================
+RENDER INVALIDATION SYSTEM
+============================================================
+
+Define invalidation triggers:
+- region-based invalidation
+- full invalidation (rare)
+- layer-specific invalidation
+
+Each invalidation must be:
+- precise
+- minimal
+- mergeable
+
+============================================================
+COLOR SYSTEM
+============================================================
+
+Support:
+- true color (24-bit RGB)
+- indexed fallback mode
+- theme system
+- semantic coloring (syntax tokens)
+
+Color changes must be cached to avoid redundant ANSI output.
+
+============================================================
+STYLE SYSTEM
+============================================================
+
+Support:
+- bold
+- italic (if terminal supports)
+- underline
+- strikethrough
+- dim
+- reverse video
+- blinking (optional)
+
+Styles must be bitmask-based.
+
+============================================================
+UNICODE HANDLING
+============================================================
+
+Must correctly handle:
+- multibyte UTF-8
+- grapheme clusters
+- emoji sequences
+- combining marks
+- zero-width characters
+
+Incorrect handling is a critical bug.
+
+============================================================
+RENDERING DATA FLOW
+============================================================
+
+Buffer System → UI State → Layout Engine → Diff Engine → Renderer → Terminal Output
+
+Each step must be:
+- isolated
+- testable
+- replaceable
+
+============================================================
+ERROR HANDLING
+============================================================
+
+Renderer must never crash editor.
+
+If rendering fails:
+- fallback to safe mode
+- skip frame
+- log error
+- continue next cycle
+
+============================================================
+DEBUGGING SUPPORT
+============================================================
+
+Include:
+- frame dump logging
+- diff visualization mode
+- render latency tracking
+- ANSI output inspector
+- dirty region visualizer
+
+============================================================
+EXTENSIBILITY
+============================================================
+
+Renderer must allow:
+- custom UI layers
+- plugin-rendered overlays
+- theme-driven rendering modifications
+
+But must NEVER allow plugins to:
+- corrupt base buffer rendering
+- bypass renderer pipeline
+
+============================================================
+TESTING REQUIREMENTS
+============================================================
+
+Must include:
+- rendering correctness tests
+- diff accuracy tests
+- unicode rendering tests
+- stress tests (large buffers)
+- flicker detection tests
+- memory leak tests
+
+============================================================
+FINAL EXPECTATION
+============================================================
+
+The rendering engine must behave like:
+- a minimal GPU pipeline inside a terminal
+- extremely efficient
+- predictable
+- modular
+- deterministic
+
+It is one of the most critical systems in Interm Editor.
+
+It must never prioritize features over correctness or performance.

@@ -1,0 +1,366 @@
+SUBSYSTEM: AI INTEGRATION ARCHITECTURE
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core orchestration) + Python (AI plugins/providers)
+ROLE: Intelligent assistant, code understanding, and augmentation layer
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a fully modular AI system for INTERM that enhances development workflows without disrupting core editor performance.
+
+The AI system must provide:
+- code explanation
+- code generation
+- refactoring suggestions
+- contextual chat assistant
+- inline completions (optional)
+- project-wide understanding
+- semantic search augmentation
+
+It must be:
+- async-first
+- non-blocking
+- provider-agnostic
+- optional (can be disabled fully)
+- safe and sandboxed
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+AI is an augmentation layer — NOT a core dependency.
+
+Rules:
+- editor must function fully without AI
+- AI must never block UI
+- AI must never directly modify buffer state
+- AI suggestions must be reviewed/confirmed
+- AI must operate asynchronously only
+
+============================================================
+ARCHITECTURE OVERVIEW
+============================================================
+
+AI system consists of:
+
+1. AI Core Manager (C)
+2. Provider Abstraction Layer
+3. Prompt Orchestration Engine
+4. Context Builder
+5. Streaming Response Handler
+6. AI Task Scheduler (integrated with async runtime)
+7. Safety & Policy Layer
+8. Cache & Memory System
+
+============================================================
+AI PROVIDER ABSTRACTION
+============================================================
+
+AI providers must be interchangeable.
+
+Supported types:
+- OpenAI-compatible APIs
+- local models (llama.cpp, etc.)
+- custom REST APIs
+- offline heuristic models
+
+Provider interface:
+
+struct AIProvider {
+    initialize()
+    send_request(prompt)
+    stream_response()
+    cancel_request()
+    shutdown()
+}
+
+Rules:
+- no provider-specific logic in core editor
+- all providers must conform to unified interface
+
+============================================================
+CONTEXT BUILDING ENGINE
+============================================================
+
+AI must receive structured context from editor:
+
+Context includes:
+- active buffer content (windowed)
+- cursor position
+- selection ranges
+- diagnostics (LSP)
+- project structure (lightweight)
+- git diff (optional)
+- open tabs
+- recent edits
+
+IMPORTANT:
+Context must be:
+- trimmed
+- token-aware
+- privacy-safe
+- minimal but sufficient
+
+============================================================
+CONTEXT STRATEGY
+============================================================
+
+Do NOT send entire files blindly.
+
+Use:
+- sliding window context
+- relevance scoring
+- AST-based extraction (future)
+- semantic chunking
+- diff-based updates
+
+============================================================
+PROMPT ORCHESTRATION ENGINE
+============================================================
+
+Must manage:
+- system prompts
+- user prompts
+- tool prompts
+- plugin prompts
+- context injection
+
+Prompt system must:
+- be versioned
+- be configurable
+- support templates
+- support chaining
+
+============================================================
+STREAMING RESPONSE SYSTEM
+============================================================
+
+AI responses must:
+- stream token-by-token
+- update UI incrementally
+- support cancellation
+- support partial rendering
+
+Streaming must integrate with:
+- UI overlay system
+- suggestion panels
+- inline ghost text (optional)
+
+============================================================
+INLINE AI SYSTEM (OPTIONAL FEATURE)
+============================================================
+
+Inline AI can:
+- suggest code completions
+- show ghost text
+- offer refactoring hints
+
+Rules:
+- must be non-intrusive
+- must be dismissible
+- must not auto-apply changes
+
+============================================================
+CHAT ASSISTANT SYSTEM
+============================================================
+
+AI chat must support:
+- code-aware conversations
+- file referencing
+- selection-based queries
+- multi-turn context retention
+
+Chat UI must:
+- be floating panel or split pane
+- not block editing
+- support history
+
+============================================================
+CODE UNDERSTANDING ENGINE
+============================================================
+
+AI must understand:
+- functions
+- classes
+- modules
+- project structure
+
+Must support:
+- "explain this function"
+- "what does this file do"
+- "how does this module interact"
+
+Prefer structured extraction over raw text.
+
+============================================================
+REFRACTORING ENGINE
+============================================================
+
+AI can suggest:
+- rename variables
+- extract functions
+- simplify logic
+- optimize code structure
+
+But must ALWAYS:
+- show diff preview
+- require user confirmation
+- support undo integration
+
+============================================================
+TASK EXECUTION MODEL
+============================================================
+
+All AI operations are tasks in async runtime.
+
+AI tasks:
+- are cancellable
+- are prioritized
+- are streamable
+- are isolated
+
+Priority levels:
+- high: inline suggestions
+- normal: chat requests
+- low: background analysis
+
+============================================================
+SAFETY & POLICY LAYER
+============================================================
+
+AI output must be filtered:
+
+Rules:
+- prevent destructive suggestions without confirmation
+- block unsafe system commands
+- avoid file deletion suggestions without warnings
+- detect hallucinated file paths
+
+============================================================
+CACHE SYSTEM
+============================================================
+
+Cache:
+- embeddings (optional future)
+- prompt results
+- repeated queries
+- project context summaries
+
+Cache must:
+- expire safely
+- update on buffer changes
+- avoid stale suggestions
+
+============================================================
+PERFORMANCE REQUIREMENTS
+============================================================
+
+AI system must:
+- never block UI
+- stream responses quickly
+- minimize token usage
+- reuse context intelligently
+- avoid redundant API calls
+
+============================================================
+MEMORY SYSTEM (AI MEMORY)
+============================================================
+
+AI may maintain:
+- session memory
+- project memory (optional)
+- user preferences (optional)
+
+Rules:
+- memory must be explicit
+- user must control persistence
+- no hidden tracking
+
+============================================================
+ERROR HANDLING
+============================================================
+
+Must handle:
+- API failures
+- rate limits
+- timeout errors
+- malformed responses
+
+Fallback:
+- graceful degradation
+- retry policies
+- offline mode (if possible)
+
+============================================================
+DEBUGGING SUPPORT
+============================================================
+
+Must include:
+- prompt inspection tool
+- token usage logs
+- response latency tracking
+- context visualization
+- provider debug switch
+
+============================================================
+PLUGIN INTEGRATION
+============================================================
+
+Plugins can:
+- add AI providers
+- extend prompts
+- add tools (formatters, analyzers)
+- modify context builders
+
+But must NOT:
+- bypass safety layer
+- directly mutate buffer without confirmation
+
+============================================================
+TOOL SYSTEM (FUTURE EXTENSION)
+============================================================
+
+AI may call tools:
+- search codebase
+- run formatter
+- run tests
+- inspect git history
+
+Tool calls must be:
+- explicit
+- logged
+- user-visible
+
+============================================================
+MULTI-MODEL SUPPORT
+============================================================
+
+System must support:
+- multiple AI models simultaneously
+- model routing based on task type
+- fallback models if primary fails
+
+============================================================
+DESIGN GOAL SUMMARY
+============================================================
+
+AI system should behave like:
+- an assistant layer embedded inside the editor
+- not a controller of the editor
+
+It must be:
+- safe
+- optional
+- fast
+- modular
+- transparent
+
+============================================================
+FINAL RULE
+============================================================
+
+If AI breaks determinism, introduces lag, or behaves unpredictably:
+it must be constrained or disabled.
+
+Editor stability ALWAYS takes priority over intelligence.

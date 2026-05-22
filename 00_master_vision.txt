@@ -1,0 +1,594 @@
+PROJECT: IN-TERMINAL EDITOR (interm or INTERM)
+TYPE: Next-generation terminal-based code editor
+PRIMARY LANGUAGES: C + Python
+TARGET PLATFORMS: Linux, macOS, Windows
+EDITOR CATEGORY: Modal terminal editor
+INSPIRATION: Helix, Neovim, Vim, Kakoune, VSCode UX, modern IDE systems
+
+============================================================
+MISSION
+============================================================
+
+Interm Editor is a modern terminal-first code editor focused on:
+- extreme performance
+- clean architecture
+- modern UX
+- extensibility
+- developer ergonomics
+- scalability
+- maintainability
+- AI readiness
+- asynchronous architecture
+
+Interm is NOT intended to be:
+- a clone of Vim
+- a clone of Helix
+- a monolithic editor
+- a legacy compatibility project
+
+Interm should instead become:
+- a modern systems-engineered terminal editor
+- a scalable editor platform
+- an editor operating system
+- a developer-focused programmable environment
+
+The editor should feel:
+- as fast as Helix
+- as extensible as Neovim
+- as stable as mature system software
+- as intuitive as modern graphical editors
+- as lightweight as terminal-native applications
+
+============================================================
+CORE ENGINEERING PHILOSOPHY
+============================================================
+
+The editor architecture must prioritize:
+
+1. PERFORMANCE FIRST
+2. MODULARITY FIRST
+3. ASYNC-FIRST DESIGN
+4. LOW MEMORY USAGE
+5. CLEAN APIs
+6. MAINTAINABILITY
+7. TERMINAL-NATIVE UX
+8. EXTENSIBILITY
+9. FUTURE SCALABILITY
+10. DEVELOPER EXPERIENCE
+
+Every subsystem must be evaluated against these priorities.
+
+============================================================
+ABSOLUTE RULES
+============================================================
+
+The following architectural mistakes are forbidden:
+
+- giant monolithic source files
+- massive god objects
+- global mutable state
+- blocking the UI thread
+- tightly coupled systems
+- feature-specific hacks
+- unsafe ownership patterns
+- duplicated rendering logic
+- duplicated command logic
+- duplicated parser logic
+- memory leaks
+- unnecessary heap allocations
+- hidden side effects
+- recursive event chaos
+- uncontrolled thread spawning
+- editor freezes
+- synchronous LSP execution
+- synchronous AI execution
+- rendering the full screen every frame
+- unnecessary redraws
+- plugin systems with unrestricted core access
+
+============================================================
+PERFORMANCE PHILOSOPHY
+============================================================
+
+Interm must be designed like a high-performance engine.
+
+Performance is not optional.
+
+The architecture must support:
+- ultra-fast startup
+- low-latency input handling
+- smooth scrolling
+- massive file support
+- low memory fragmentation
+- incremental rendering
+- incremental parsing
+- asynchronous execution
+- cache-friendly memory layouts
+- efficient data structures
+- lock minimization
+- low allocation frequency
+
+The editor should remain responsive under:
+- large projects
+- multiple LSP servers
+- multiple panes
+- large syntax trees
+- AI integrations
+- heavy plugin usage
+
+============================================================
+STARTUP PERFORMANCE GOALS
+============================================================
+
+Target startup times:
+- ideal: under 20ms
+- acceptable: under 50ms
+
+Cold startup should:
+- initialize minimally
+- lazy-load expensive systems
+- avoid unnecessary filesystem scanning
+- avoid unnecessary plugin loading
+- avoid unnecessary parsing
+
+============================================================
+MEMORY PHILOSOPHY
+============================================================
+
+Memory safety and efficiency are critical.
+
+The architecture must:
+- minimize allocations
+- avoid fragmentation
+- reuse buffers
+- use arenas/pools where appropriate
+- clearly define ownership
+- prevent leaks
+- support deterministic cleanup
+
+Every subsystem must define:
+- ownership model
+- allocation strategy
+- lifetime management
+- cleanup guarantees
+
+============================================================
+ARCHITECTURE PHILOSOPHY
+============================================================
+
+Interm must use a modular layered architecture.
+
+Subsystems must communicate through:
+- stable interfaces
+- event systems
+- message passing
+- command dispatching
+- service APIs
+
+Subsystems must remain isolated.
+
+Subsystems should be independently testable.
+
+Subsystems should be replaceable without rewriting the entire editor.
+
+============================================================
+RECOMMENDED HIGH-LEVEL ARCHITECTURE
+============================================================
+
+CORE LAYERS:
+
+1. Platform Layer
+2. Terminal Layer
+3. Rendering Layer
+4. UI Layer
+5. Input Layer
+6. Command Layer
+7. Buffer Layer
+8. Syntax Layer
+9. LSP Layer
+10. Plugin Layer
+11. AI Layer
+12. Storage Layer
+
+Each layer must:
+- expose stable APIs
+- hide implementation details
+- avoid leaking internal state
+- avoid cyclic dependencies
+
+============================================================
+ASYNC-FIRST DESIGN
+============================================================
+
+Interm must assume all expensive operations are asynchronous.
+
+Examples:
+- file loading
+- file saving
+- syntax parsing
+- LSP communication
+- fuzzy searching
+- git operations
+- AI operations
+- plugin tasks
+- indexing
+
+The UI thread must remain responsive at all times.
+
+Long-running tasks must:
+- use worker systems
+- support cancellation
+- support prioritization
+- support progress reporting
+
+============================================================
+THREADING MODEL
+============================================================
+
+The architecture must define:
+- UI thread responsibilities
+- worker thread responsibilities
+- synchronization boundaries
+- thread-safe messaging
+- task scheduling
+- cancellation systems
+
+Avoid:
+- excessive locking
+- shared mutable state
+- thread contention
+- deadlocks
+
+============================================================
+RENDERING PHILOSOPHY
+============================================================
+
+Rendering should be:
+- diff-based
+- incremental
+- minimal
+- cache-aware
+- terminal-efficient
+
+The renderer must:
+- avoid full-screen redraws
+- batch terminal writes
+- minimize ANSI operations
+- support true color
+- support Unicode
+- support wide characters
+- support ligatures optionally
+- support smooth scrolling
+
+============================================================
+TEXT ENGINE PHILOSOPHY
+============================================================
+
+The text engine is the heart of Interm.
+
+It must support:
+- large files
+- multicursor editing
+- undo trees
+- transactional edits
+- snapshots
+- incremental edits
+- structural editing
+
+The architecture must carefully evaluate:
+- rope
+- piece table
+- gap buffer
+- hybrid approaches
+
+The chosen structure must optimize:
+- insertion speed
+- deletion speed
+- memory usage
+- cache locality
+- undo operations
+- multicursor editing
+
+============================================================
+MODAL EDITING PHILOSOPHY
+============================================================
+
+Interm uses modal editing but modernizes the experience.
+
+Goals:
+- composability
+- discoverability
+- consistency
+- ergonomic workflows
+- reduced memorization burden
+
+The editor should:
+- guide users visually
+- provide command hints
+- expose command discovery
+- reduce cryptic behavior
+
+Interm should NOT blindly copy Vim behavior.
+
+============================================================
+MULTICURSOR PHILOSOPHY
+============================================================
+
+Multicursor editing is a first-class feature.
+
+It must integrate deeply with:
+- motions
+- selections
+- syntax
+- search
+- replace
+- commands
+
+Multicursor behavior should feel native, not bolted on.
+
+============================================================
+PLUGIN PHILOSOPHY
+============================================================
+
+Plugins should extend the editor safely.
+
+The plugin system must:
+- isolate plugins
+- support hot reload
+- support async operations
+- expose stable APIs
+- support versioning
+- support sandboxing
+- prevent editor crashes from plugins
+
+Plugins should not:
+- directly mutate core editor memory
+- bypass APIs
+- block the UI thread
+
+============================================================
+PYTHON INTEGRATION PHILOSOPHY
+============================================================
+
+Python is used for:
+- scripting
+- automation
+- plugins
+- tooling
+- AI orchestration
+- custom commands
+- task systems
+
+Performance-critical systems must remain in C.
+
+The Python bridge must:
+- minimize overhead
+- isolate failures
+- support async communication
+- expose stable APIs
+
+============================================================
+AI PHILOSOPHY
+============================================================
+
+AI integration must be modular and optional.
+
+AI systems must:
+- never block the editor
+- stream responses asynchronously
+- support local models
+- support remote APIs
+- support provider abstraction
+- support context management
+
+AI must enhance workflows without overwhelming the UI.
+
+============================================================
+UX PHILOSOPHY
+============================================================
+
+Interm should feel modern.
+
+UX goals:
+- responsive
+- discoverable
+- visually clean
+- keyboard-first
+- smooth
+- informative
+- non-intrusive
+
+The UI should:
+- minimize clutter
+- maximize information density
+- expose contextual hints
+- reduce cognitive load
+
+============================================================
+KEYBOARD UX PRINCIPLES
+============================================================
+
+Keyboard interactions must:
+- be ergonomic
+- reduce finger strain
+- minimize awkward combinations
+- support remapping
+- support layered commands
+
+Commands should:
+- compose naturally
+- remain predictable
+- expose discoverability tools
+
+============================================================
+CONFIGURATION PHILOSOPHY
+============================================================
+
+Configuration should:
+- be simple
+- readable
+- hot reloadable
+- well documented
+- schema validated
+
+Avoid:
+- cryptic syntax
+- magic behavior
+- hidden defaults
+
+============================================================
+ERROR HANDLING PHILOSOPHY
+============================================================
+
+Interm must fail gracefully.
+
+Errors should:
+- never crash the editor
+- be recoverable
+- provide diagnostics
+- support structured logging
+
+The editor should:
+- isolate subsystem failures
+- isolate plugin failures
+- isolate AI failures
+
+============================================================
+TESTING PHILOSOPHY
+============================================================
+
+Testing is mandatory.
+
+Required testing categories:
+- unit tests
+- integration tests
+- stress tests
+- fuzz tests
+- rendering tests
+- plugin tests
+- performance benchmarks
+
+Critical systems must include:
+- memory validation
+- race-condition testing
+- edge-case testing
+
+============================================================
+DOCUMENTATION PHILOSOPHY
+============================================================
+
+Every subsystem must include:
+- architecture docs
+- API docs
+- usage examples
+- lifecycle documentation
+
+Documentation must explain:
+- WHY systems exist
+- HOW systems work
+- WHAT tradeoffs were chosen
+
+============================================================
+SCALABILITY PHILOSOPHY
+============================================================
+
+Interm must scale long-term.
+
+The architecture should support future additions:
+- GPU rendering
+- collaborative editing
+- remote editing
+- distributed indexing
+- AI agents
+- cloud synchronization
+- semantic indexing
+- project graphs
+
+The architecture should avoid requiring rewrites later.
+
+============================================================
+PROJECT STRUCTURE GUIDELINES
+============================================================
+
+Source layout should remain modular.
+
+Example structure:
+
+/interm
+    /core
+    /platform
+    /terminal
+    /render
+    /ui
+    /input
+    /buffer
+    /syntax
+    /commands
+    /lsp
+    /plugins
+    /python
+    /ai
+    /config
+    /storage
+    /git
+    /tests
+    /benchmarks
+    /tools
+    /docs
+
+Each module should:
+- own its responsibilities
+- expose stable APIs
+- avoid leaking internals
+
+============================================================
+CODE STYLE RULES
+============================================================
+
+Code must:
+- be readable
+- be modular
+- avoid giant functions
+- avoid hidden side effects
+- use explicit naming
+- use consistent formatting
+- document non-obvious logic
+
+============================================================
+C CODE STANDARDS
+============================================================
+
+Use:
+- strict compiler warnings
+- sanitizers
+- static analysis
+- explicit ownership
+- minimal macros
+- careful pointer handling
+
+Avoid:
+- macro abuse
+- unsafe casts
+- hidden allocations
+- unclear ownership
+
+============================================================
+FINAL OBJECTIVE
+============================================================
+
+Interm should become a truly modern terminal editor:
+- fast
+- scalable
+- elegant
+- extensible
+- maintainable
+- AI-ready
+- developer-focused
+
+The architecture must feel like:
+- a professional systems software project
+- not a hobby editor
+- not a prototype
+- not a hackathon codebase
+
+Every engineering decision must support long-term sustainability.

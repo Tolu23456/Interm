@@ -1,0 +1,322 @@
+SYSTEM: CONFIGURATION + THEME + RUNTIME SETTINGS SYSTEM
+PROJECT: IN-TERMINAL (INTERM)
+LANGUAGE: C (core loader) + Python (tooling/extensions)
+ROLE: Configuration management, theming, and runtime customization layer
+
+============================================================
+OBJECTIVE
+============================================================
+
+Design a unified configuration and theming system for INTERM that controls:
+
+- editor behavior
+- keybindings
+- UI appearance
+- plugin settings
+- LSP configuration
+- AI behavior
+- performance tuning
+
+It must be:
+- hot-reloadable
+- human-readable
+- versioned
+- safe under corruption
+- extensible without breaking core
+
+============================================================
+CORE DESIGN PRINCIPLE
+============================================================
+
+Configuration is runtime state, not static files.
+
+Changes must:
+- apply instantly (hot reload)
+- never require restart
+- never corrupt running state
+- fail gracefully if invalid
+
+============================================================
+CONFIG FORMAT DESIGN
+============================================================
+
+Primary format: TOML (preferred) or hybrid TOML-like DSL.
+
+Why:
+- human readable
+- structured but simple
+- widely supported
+- easy parsing in C
+
+Example:
+
+[editor]
+tab_width = 4
+line_numbers = true
+word_wrap = false
+
+[theme]
+name = "interm_dark"
+
+============================================================
+CONFIG LOADING SYSTEM
+============================================================
+
+System must:
+
+1. load base config
+2. load user overrides
+3. load project-specific config
+4. load plugin configs
+5. merge all layers
+
+Priority order:
+plugin < project < user < system default
+
+============================================================
+HOT RELOAD SYSTEM
+============================================================
+
+Config changes must trigger:
+
+- event_config_changed
+- partial subsystem reload
+- UI re-render if needed
+
+Rules:
+- no restart required
+- invalid configs must not crash system
+- partial rollback supported
+
+============================================================
+VALIDATION SYSTEM
+============================================================
+
+All configs must be validated:
+
+- type checking
+- range checking
+- dependency validation
+- schema validation
+
+Invalid configs must:
+- fallback to defaults
+- emit warnings
+- never break runtime
+
+============================================================
+THEME SYSTEM OVERVIEW
+============================================================
+
+Theme system controls:
+
+- colors
+- UI styling
+- syntax highlighting
+- cursor appearance
+- statusline design
+- popup styling
+
+============================================================
+THEME STRUCTURE
+
+Themes defined as structured files:
+
+[colors]
+background = "#1e1e2e"
+foreground = "#cdd6f4"
+cursor = "#f5e0dc"
+selection = "#585b70"
+
+[syntax]
+keyword = "#89b4fa"
+string = "#a6e3a1"
+comment = "#6c7086"
+
+============================================================
+THEME ENGINE RULES
+============================================================
+
+Must support:
+
+- base themes
+- theme inheritance
+- partial overrides
+- dynamic switching
+- plugin theme injection
+
+============================================================
+DYNAMIC THEME SWITCHING
+============================================================
+
+Themes must switch at runtime:
+
+- no restart required
+- instant re-render
+- smooth transition (optional)
+
+Must emit:
+event_theme_changed
+
+============================================================
+KEYBINDING CONFIG SYSTEM
+============================================================
+
+Keybindings must be configurable:
+
+[bindings.normal]
+"i" = "enter_insert_mode"
+"dd" = "delete_line"
+"gg" = "goto_top"
+
+Rules:
+- mode-specific bindings
+- plugin override support
+- conflict detection
+
+============================================================
+PLUGIN CONFIGURATION
+
+Each plugin can define:
+
+[plugin.git]
+auto_fetch = true
+sign_commits = false
+
+Rules:
+- isolated namespaces
+- cannot override core silently
+- must be validated
+
+============================================================
+LSP CONFIGURATION
+
+Example:
+
+[lsp.python]
+server = "pyright"
+format_on_save = true
+
+[lsp.rust]
+server = "rust-analyzer"
+
+Must support:
+- per-language config
+- per-project overrides
+
+============================================================
+AI CONFIGURATION
+
+Example:
+
+[ai]
+enabled = true
+provider = "local"
+max_tokens = 2048
+
+Must support:
+- provider switching
+- model selection
+- feature toggles
+
+============================================================
+PERFORMANCE TUNING CONFIG
+
+[performance]
+render_fps_cap = 144
+async_workers = 8
+cache_size_mb = 256
+
+Rules:
+- must apply at runtime
+- must not require restart
+- must validate safe ranges
+
+============================================================
+CONFIG MERGE ENGINE
+
+System must merge configs using:
+
+- deep merge strategy
+- array override rules
+- type-safe merging
+
+Conflicts resolved by priority order:
+system < user < project < plugin
+
+============================================================
+ERROR HANDLING
+
+Must handle:
+- malformed configs
+- missing fields
+- invalid types
+- schema mismatches
+
+Rules:
+- never crash editor
+- fallback to safe defaults
+- log warnings clearly
+
+============================================================
+SECURITY RULES
+
+Config system must prevent:
+
+- unsafe plugin overrides
+- injection into system commands
+- invalid path access via config
+- malicious theme injection
+
+============================================================
+DEBUGGING TOOLS
+
+Must include:
+
+- live config inspector
+- diff viewer (old vs new config)
+- theme preview mode
+- binding conflict detector
+- runtime config tracer
+
+============================================================
+INTEGRATION POINTS
+
+Config system affects:
+
+- renderer → theme changes
+- input system → keybindings
+- LSP → language configs
+- AI → provider settings
+- plugins → feature toggles
+- async runtime → performance tuning
+
+============================================================
+HOT RELOAD PIPELINE
+
+1. config file change detected
+2. parse new config
+3. validate schema
+4. diff against current config
+5. emit change events
+6. apply subsystem updates incrementally
+
+============================================================
+DESIGN GOAL SUMMARY
+
+Config system should behave like:
+
+- a live control panel for the entire editor
+
+It must be:
+- dynamic
+- safe
+- structured
+- extensible
+- predictable
+
+============================================================
+FINAL RULE
+
+If configuration requires restart or causes instability:
+the design is considered incomplete.

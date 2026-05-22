@@ -1,0 +1,44 @@
+#ifndef INTERM_STATE_H
+#define INTERM_STATE_H
+
+#include "common.h"
+#include "buffer.h"
+
+typedef enum {
+    IM_MODE_NORMAL,
+    IM_MODE_INSERT,
+    IM_MODE_VISUAL,
+    IM_MODE_COMMAND,
+} im_mode_t;
+
+typedef struct {
+    size_t pos;        // Byte offset in buffer
+    size_t line;       // Cached line number
+    size_t col;        // Cached column number
+    size_t want_col;   // Desired column for vertical movement
+} im_cursor_t;
+
+#define MAX_CURSORS 64
+#define MAX_COMMAND_LEN 256
+
+typedef struct {
+    im_mode_t mode;
+    im_buffer_t* active_buffer;
+    
+    im_cursor_t cursors[MAX_CURSORS];
+    size_t cursor_count;
+    size_t primary_cursor_idx;
+
+    char command_buffer[MAX_COMMAND_LEN];
+    size_t command_len;
+} im_editor_state_t;
+
+im_result_t im_state_init();
+im_result_t im_state_shutdown();
+
+im_editor_state_t* im_state_get();
+
+im_result_t im_state_set_mode(im_mode_t mode);
+im_result_t im_state_set_active_buffer(im_buffer_t* buf);
+
+#endif // INTERM_STATE_H
