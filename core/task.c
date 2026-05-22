@@ -1,4 +1,5 @@
 #include "task.h"
+#include "event.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -34,7 +35,6 @@ static void* worker_proc(void* arg) {
             break;
         }
 
-        // Simple priority extraction (could be optimized)
         int best_idx = -1;
         im_priority_t highest_prio = -1;
 
@@ -47,7 +47,6 @@ static void* worker_proc(void* arg) {
 
         if (best_idx != -1) {
             task = g_task_queue.tasks[best_idx];
-            // Remove from queue
             g_task_queue.tasks[best_idx] = g_task_queue.tasks[g_task_queue.count - 1];
             g_task_queue.count--;
         }
@@ -59,7 +58,12 @@ static void* worker_proc(void* arg) {
             task->result = task->func(task->input_data, &task->cancelled);
             task->state = task->cancelled ? IM_TASK_STATE_CANCELLED : IM_TASK_STATE_COMPLETED;
             
-            // TODO: Emit event task_completed
+            im_event_t ev = {0};
+            ev.type = IM_EVENT_TASK_COMPLETED;
+            ev.payload = malloc(sizeof(uint64_t));
+            *(uint64_t*)ev.payload = task->id;
+            ev.payload_size = sizeof(uint64_t);
+            im_event_emit(ev);
         }
     }
     return NULL;
@@ -104,7 +108,7 @@ im_result_t im_task_submit(im_task_t* task) {
     pthread_mutex_lock(&g_task_queue.mutex);
     if (g_task_queue.count >= MAX_TASKS) {
         pthread_mutex_unlock(&g_task_queue.mutex);
-        return IM_ERR; // Queue full
+        return IM_ERR;
     }
     
     task->id = atomic_fetch_add(&g_next_task_id, 1);
@@ -121,7 +125,6 @@ im_result_t im_task_submit(im_task_t* task) {
 
 im_result_t im_task_cancel(uint64_t task_id) {
     pthread_mutex_lock(&g_task_queue.mutex);
-    // Find in queue and set cancelled
     for (int i = 0; i < g_task_queue.count; i++) {
         if (g_task_queue.tasks[i]->id == task_id) {
             g_task_queue.tasks[i]->cancelled = true;
@@ -129,14 +132,11 @@ im_result_t im_task_cancel(uint64_t task_id) {
             return IM_OK;
         }
     }
-    // If not in queue, it might be running. We can't easily find it without a separate "running" list
-    // For now, simple implementation
     pthread_mutex_unlock(&g_task_queue.mutex);
     return IM_ERR_NOT_FOUND;
 }
 
 im_task_state_t im_task_get_status(uint64_t task_id) {
     (void)task_id;
-    // This needs a global registry of tasks to be truly useful
     return IM_TASK_STATE_RUNNING; 
 }

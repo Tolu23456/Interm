@@ -15,6 +15,12 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) $(TEST_BINS)
 
-.PHONY: all clean
+test: tests/test_buffer
+	./tests/test_buffer
+
+tests/test_buffer: tests/test_buffer.c buffer/buffer.c
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+.PHONY: all clean test
