@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 #include "boot.h"
 #include "input.h"
 #include "event.h"
@@ -10,16 +12,14 @@
 #include "renderer.h"
 #include "commands.h"
 #include "storage.h"
+#include "ui.h"
+#include "python_bridge.h"
 
 static bool g_keep_running = true;
 static im_buffer_t g_main_buffer;
 
 static im_result_t cmd_quit(const char* args, bool force) {
-    (void)args;
-    // In a real editor, check for unsaved changes unless force is true
-    if (!force) {
-        // TODO: Check dirty flag
-    }
+    (void)args; (void)force;
     g_keep_running = false;
     return IM_OK;
 }
@@ -100,8 +100,49 @@ static void on_key_press(im_event_t* event, void* user_data) {
                         }
                         break;
                     }
-                    case 'x': im_buffer_delete(&g_main_buffer, cursor->pos, 1); break;
+                    case 'w': { // helix w: move next word start
+                        char* text = im_buffer_get_range(&g_main_buffer, cursor->pos, g_main_buffer.total_length - cursor->pos);
+                        if (text) {
+                            size_t i = 0;
+                            while (text[i] && isalnum(text[i])) i++;
+                            while (text[i] && !isalnum(text[i])) i++;
+                            cursor->pos += i;
+                            free(text);
+                        }
+                        break;
+                    }
+                    case 'b': { // helix b: move prev word start
+                        if (cursor->pos == 0) break;
+                        char* text = im_buffer_get_range(&g_main_buffer, 0, cursor->pos);
+                        if (text) {
+                            int i = (int)cursor->pos - 1;
+                            while (i >= 0 && !isalnum(text[i])) i--;
+                            while (i >= 0 && isalnum(text[i])) i--;
+                            cursor->pos = (size_t)(i + 1);
+                            free(text);
+                        }
+                        break;
+                    }
+                    case 'e': { // helix e: move end of word
+                        char* text = im_buffer_get_range(&g_main_buffer, cursor->pos, g_main_buffer.total_length - cursor->pos);
+                        if (text) {
+                            size_t i = 0;
+                            if (text[i] && !isalnum(text[i])) while (text[i] && !isalnum(text[i])) i++;
+                            while (text[i] && isalnum(text[i])) i++;
+                            if (i > 0) cursor->pos += (i - 1);
+                            free(text);
+                        }
+                        break;
+                    }
+                    case 'x': { // helix x: select line (for us just delete line for now)
+                        size_t line = 0;
+                        while (line < g_main_buffer.line_count - 1 && g_main_buffer.line_offsets[line+1] <= cursor->pos) line++;
+                        im_buffer_delete(&g_main_buffer, g_main_buffer.line_offsets[line],
+                                         ((line + 1 < g_main_buffer.line_count) ? g_main_buffer.line_offsets[line+1] : g_main_buffer.total_length) - g_main_buffer.line_offsets[line]);
+                        break;
+                    }
                     case 'u': im_buffer_undo(&g_main_buffer); break;
+                    case 'U': im_buffer_redo(&g_main_buffer); break;
                 }
             }
         }
@@ -116,6 +157,11 @@ static void on_key_press(im_event_t* event, void* user_data) {
             char ch = '\n';
             im_buffer_insert(&g_main_buffer, cursor->pos, &ch, 1);
             cursor->pos++;
+        } else if (key->code == IM_KEY_BACKSPACE) {
+            if (cursor->pos > 0) {
+                im_buffer_delete(&g_main_buffer, cursor->pos - 1, 1);
+                cursor->pos--;
+            }
         }
     } else if (state->mode == IM_MODE_COMMAND) {
         if (key->code == IM_KEY_ESC) {
@@ -138,37 +184,29 @@ static void on_key_press(im_event_t* event, void* user_data) {
     }
 }
 
-/**
- * INTERM - In-Terminal Editor
- * Entry Point
- */
 int main(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-
-    if (im_boot_init() != IM_OK) {
-        return 1;
-    }
+    (void)argc; (void)argv;
+    if (im_boot_init() != IM_OK) return 1;
     
     im_command_register("q", "Quit editor", cmd_quit);
     im_command_register("w", "Save/Write buffer", cmd_save);
     im_command_register("e", "Edit file", cmd_edit);
 
-    im_buffer_init(&g_main_buffer, "Welcome to INTERM!\nType ':' then 'q' to quit.\n", 48);
+    const char* welcome = "INTERM - Helix-style editing enabled.\nhjkl - move\nw - next word\nb - prev word\ne - end of word\nx - delete line\nu - undo\nU - redo\n";
+    im_buffer_init(&g_main_buffer, welcome, strlen(welcome));
     im_state_set_active_buffer(&g_main_buffer);
     
+    im_python_load_plugins("plugins");
+
     im_event_subscribe(IM_EVENT_KEY_PRESS, on_key_press, NULL);
     
     uint8_t buf[16];
     while (g_keep_running) {
         ssize_t n = read(STDIN_FILENO, buf, sizeof(buf));
-        if (n > 0) {
-            im_input_process_raw(buf, n);
-        }
-        
+        if (n > 0) im_input_process_raw(buf, n);
+        im_ui_render_all(im_render_get_current_buffer());
         im_render_frame();
-        
-        usleep(10000); // 10ms
+        usleep(10000);
     }
     
     im_buffer_destroy(&g_main_buffer);

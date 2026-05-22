@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "buffer.h"
+#include <pthread.h>
 
 typedef enum {
     IM_MODE_NORMAL,
@@ -32,6 +33,8 @@ typedef struct {
 
     char command_buffer[MAX_COMMAND_LEN];
     size_t command_len;
+
+    pthread_mutex_t mutex;
 } im_editor_state_t;
 
 im_result_t im_state_init();

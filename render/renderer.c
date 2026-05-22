@@ -60,43 +60,6 @@ im_result_t im_render_frame() {
     if (!g_initialized) return IM_ERR;
     
     im_editor_state_t* state = im_state_get();
-    if (!state->active_buffer) return IM_OK;
-    
-    for (uint32_t i = 0; i < g_curr_screen.width * g_curr_screen.height; i++) {
-        g_curr_screen.cells[i] = (im_cell_t){' ', 0xCCCCCC, 0x1E1E1E, 0};
-    }
-    
-    // Simple line-by-line rendering
-    uint32_t view_height = g_curr_screen.height - 1;
-    for (uint32_t i = 0; i < view_height && i < state->active_buffer->line_count; i++) {
-        size_t start = state->active_buffer->line_offsets[i];
-        size_t next_line = (i + 1 < state->active_buffer->line_count) ? state->active_buffer->line_offsets[i+1] : state->active_buffer->total_length;
-        size_t len = next_line - start;
-        if (len > 0 && ((char*)state->active_buffer->original_data)[start + len - 1] == '\n') len--;
-
-        char* line_text = im_buffer_get_range(state->active_buffer, start, len);
-        if (line_text) {
-            for (uint32_t x = 0; x < g_curr_screen.width && line_text[x] != '\0'; x++) {
-                g_curr_screen.cells[i * g_curr_screen.width + x].character = line_text[x];
-            }
-            free(line_text);
-        }
-    }
-
-    // Status line / Command line
-    uint32_t status_y = g_curr_screen.height - 1;
-    if (state->mode == IM_MODE_COMMAND) {
-        g_curr_screen.cells[status_y * g_curr_screen.width].character = ':';
-        for (size_t i = 0; i < state->command_len && i < g_curr_screen.width - 1; i++) {
-            g_curr_screen.cells[status_y * g_curr_screen.width + 1 + i].character = state->command_buffer[i];
-        }
-    } else {
-        const char* mode_str = (state->mode == IM_MODE_INSERT) ? "-- INSERT --" : "-- NORMAL --";
-        for (size_t i = 0; mode_str[i] != '\0' && i < g_curr_screen.width; i++) {
-            g_curr_screen.cells[status_y * g_curr_screen.width + i].character = mode_str[i];
-            g_curr_screen.cells[status_y * g_curr_screen.width + i].bg_color = 0x333333;
-        }
-    }
     
     // Diff-based rendering with ANSI optimization
     uint32_t last_fg = 0, last_bg = 0;
@@ -160,4 +123,13 @@ im_result_t im_render_invalidate_all() {
     if (!g_initialized) return IM_ERR;
     memset(g_prev_screen.cells, 0, g_curr_screen.width * g_curr_screen.height * sizeof(im_cell_t));
     return IM_OK;
+}
+
+im_screen_buffer_t* im_render_get_current_buffer() {
+    if (!g_initialized) return NULL;
+    // Clear it here or in caller? UI system should probably clear.
+    for (uint32_t i = 0; i < g_curr_screen.width * g_curr_screen.height; i++) {
+        g_curr_screen.cells[i] = (im_cell_t){' ', 0xCCCCCC, 0x1E1E1E, 0};
+    }
+    return &g_curr_screen;
 }

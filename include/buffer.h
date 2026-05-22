@@ -2,6 +2,7 @@
 #define INTERM_BUFFER_H
 
 #include "common.h"
+#include <pthread.h>
 
 typedef enum {
     IM_SOURCE_ORIGINAL,
@@ -36,6 +37,8 @@ typedef struct {
     // Undo system
     struct im_undo_record_t* undo_stack;
     struct im_undo_record_t* redo_stack;
+
+    pthread_mutex_t mutex;
 } im_buffer_t;
 
 typedef enum {
@@ -59,9 +62,14 @@ im_result_t im_buffer_delete(im_buffer_t* buf, size_t pos, size_t len);
 
 /**
  * Returns a pointer to the text at the given range. 
- * Warning: may require allocation if range spans multiple pieces.
+ * Warning: requires allocation. Use im_buffer_copy_range for no-alloc.
  */
 char* im_buffer_get_range(im_buffer_t* buf, size_t pos, size_t len);
+
+/**
+ * Copies text into the provided buffer. Returns number of bytes copied.
+ */
+size_t im_buffer_copy_range(im_buffer_t* buf, size_t pos, size_t len, char* dest);
 
 /**
  * Returns the line count.
