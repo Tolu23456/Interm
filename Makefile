@@ -1,8 +1,10 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -Iinclude -O2
-LDFLAGS = -lpthread
+PY_CFLAGS = $(shell python3-config --cflags)
+PY_LDFLAGS = $(shell python3-config --ldflags --embed)
+CFLAGS = -Wall -Wextra -Werror -Iinclude -O3 $(PY_CFLAGS)
+LDFLAGS = -lpthread $(PY_LDFLAGS)
 
-SRCS = $(shell find core platform terminal render ui input buffer syntax commands lsp plugins python ai config storage git -name "*.c" 2>/dev/null)
+SRCS = $(shell find core terminal render ui buffer storage python -name "*.c" 2>/dev/null)
 OBJS = $(SRCS:.c=.o)
 TARGET = interm
 
@@ -15,6 +17,12 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) tests/test_buffer tests/test_buffer.o
 
-.PHONY: all clean
+test: tests/test_buffer
+	./tests/test_buffer
+
+tests/test_buffer: tests/test_buffer.c buffer/buffer.c
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+.PHONY: all clean test

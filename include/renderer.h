@@ -21,5 +21,6 @@ im_result_t im_render_init();
 im_result_t im_render_shutdown();
 im_result_t im_render_frame();
 im_result_t im_render_invalidate_all();
+im_screen_buffer_t* im_render_get_current_buffer();
 
 #endif // INTERM_RENDERER_H
