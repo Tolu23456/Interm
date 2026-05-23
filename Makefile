@@ -4,7 +4,7 @@ PY_LDFLAGS = $(shell python3-config --ldflags --embed)
 CFLAGS = -Wall -Wextra -Werror -Iinclude -O3 $(PY_CFLAGS)
 LDFLAGS = -lpthread $(PY_LDFLAGS)
 
-SRCS = $(shell find core terminal render ui buffer storage python -name "*.c" 2>/dev/null)
+SRCS = $(shell find core terminal render ui buffer storage python commands input syntax vfs lsp ai git config -name "*.c" 2>/dev/null)
 OBJS = $(SRCS:.c=.o)
 TARGET = interm
 

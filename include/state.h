@@ -14,6 +14,8 @@ typedef enum {
 
 typedef struct {
     size_t pos;        // Byte offset in buffer
+    size_t anchor;     // Selection anchor offset
+    bool has_selection;
     size_t line;       // Cached line number
     size_t col;        // Cached column number
     size_t want_col;   // Desired column for vertical movement
