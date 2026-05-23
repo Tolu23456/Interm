@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <poll.h>
 #include "boot.h"
 #include "input.h"
 #include "event.h"
@@ -64,7 +65,11 @@ static void on_key_press(im_event_t* event, void* user_data) {
     im_cursor_t* cursor = &state->cursors[state->primary_cursor_idx];
 
     if (state->mode == IM_MODE_NORMAL || state->mode == IM_MODE_VISUAL) {
-        if (key->code == IM_KEY_CHAR) {
+        if (key->code == IM_KEY_ESC) {
+            state->mode = IM_MODE_NORMAL;
+            cursor->has_selection = false;
+            cursor->anchor = cursor->pos;
+        } else if (key->code == IM_KEY_CHAR) {
             if (key->modifiers & IM_MOD_CTRL) {
                 if (key->ch == 'u') im_buffer_undo(&g_main_buffer);
                 else if (key->ch == 'r') im_buffer_redo(&g_main_buffer);
@@ -87,8 +92,8 @@ static void on_key_press(im_event_t* event, void* user_data) {
                         break;
                     case 'h': if (cursor->pos > 0) cursor->pos--; break;
                     case 'l': if (cursor->pos < g_main_buffer.total_length) cursor->pos++; break;
-                    case 'g': // helix g commands
-                        // simplified: just go top/bottom for now
+                    case 'g':
+                        // helix g commands
                         break;
                     case 'j': {
                         size_t line = 0;
@@ -148,6 +153,21 @@ static void on_key_press(im_event_t* event, void* user_data) {
                         }
                         break;
                     }
+                    case 'e': {
+                        char buf[1024]; size_t offset = cursor->pos; bool found = false;
+                        while (offset < g_main_buffer.total_length && !found) {
+                            size_t to_read = (g_main_buffer.total_length - offset < 1024) ? g_main_buffer.total_length - offset : 1024;
+                            im_buffer_copy_range(&g_main_buffer, offset, to_read, buf);
+                            size_t i = 0;
+                            if (offset == cursor->pos) {
+                                if (i < to_read && !isalnum(buf[i])) { while (i < to_read && !isalnum(buf[i])) i++; }
+                            }
+                            while (i < to_read && isalnum(buf[i])) i++;
+                            if (i > 0) { cursor->pos = offset + i - 1; found = true; }
+                            offset += to_read;
+                        }
+                        break;
+                    }
                     case 'x': {
                         if (state->mode == IM_MODE_VISUAL) {
                             size_t sel_min = cursor->pos < cursor->anchor ? cursor->pos : cursor->anchor;
@@ -177,21 +197,19 @@ static void on_key_press(im_event_t* event, void* user_data) {
                             state->mode = IM_MODE_NORMAL;
                         }
                         break;
-                    case 'y': // yank - stub
-                        state->mode = IM_MODE_NORMAL;
-                        break;
-                    case 'p': // paste - stub
-                        break;
                 }
-                if (state->mode != IM_MODE_VISUAL) {
+                if (state->mode != IM_MODE_VISUAL && state->mode != IM_MODE_INSERT) {
                     cursor->anchor = cursor->pos;
                     cursor->has_selection = false;
                 }
             }
         }
     } else if (state->mode == IM_MODE_INSERT) {
-        if (key->code == IM_KEY_ESC) state->mode = IM_MODE_NORMAL;
-        else if (key->code == IM_KEY_CHAR) {
+        if (key->code == IM_KEY_ESC) {
+            state->mode = IM_MODE_NORMAL;
+            cursor->anchor = cursor->pos;
+            cursor->has_selection = false;
+        } else if (key->code == IM_KEY_CHAR) {
             char ch = (char)key->ch;
             im_buffer_insert(&g_main_buffer, cursor->pos, &ch, 1);
             cursor->pos++; cursor->anchor = cursor->pos;
@@ -236,17 +254,20 @@ int main(int argc, char *argv[]) {
     im_buffer_init(&g_main_buffer, welcome, strlen(welcome));
     im_state_set_active_buffer(&g_main_buffer);
     im_event_subscribe(IM_EVENT_KEY_PRESS, on_key_press, NULL);
-    uint8_t buf[16];
+    struct pollfd pfd = { STDIN_FILENO, POLLIN, 0 };
+    uint8_t buf[64];
     while (g_keep_running) {
-        ssize_t n = read(STDIN_FILENO, buf, sizeof(buf));
-        if (n > 0) im_input_process_raw(buf, n);
+        int res = poll(&pfd, 1, 10);
+        if (res > 0 && (pfd.revents & POLLIN)) {
+            ssize_t n = read(STDIN_FILENO, buf, sizeof(buf));
+            if (n > 0) im_input_process_raw(buf, (size_t)n);
+        }
         im_editor_state_t* state = im_state_get();
         pthread_mutex_lock(&state->mutex);
         im_screen_buffer_t* screen = im_render_get_current_buffer();
         im_ui_render_all(screen);
         pthread_mutex_unlock(&state->mutex);
         im_render_frame();
-        usleep(10000);
     }
     im_buffer_destroy(&g_main_buffer);
     im_boot_shutdown();
