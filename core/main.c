@@ -15,6 +15,7 @@
 #include "storage.h"
 #include "ui.h"
 #include "python_bridge.h"
+#include "config.h"
 
 static bool g_keep_running = true;
 static im_buffer_t g_main_buffer;
@@ -92,9 +93,6 @@ static void on_key_press(im_event_t* event, void* user_data) {
                         break;
                     case 'h': if (cursor->pos > 0) cursor->pos--; break;
                     case 'l': if (cursor->pos < g_main_buffer.total_length) cursor->pos++; break;
-                    case 'g':
-                        // helix g commands
-                        break;
                     case 'j': {
                         size_t line = 0;
                         pthread_mutex_lock(&g_main_buffer.mutex);
@@ -247,6 +245,9 @@ static void on_key_press(im_event_t* event, void* user_data) {
 int main(int argc, char *argv[]) {
     (void)argc; (void)argv;
     if (im_boot_init() != IM_OK) return 1;
+
+    im_config_load("interm.conf");
+
     im_command_register("q", "Quit editor", cmd_quit);
     im_command_register("w", "Save/Write buffer", cmd_save);
     im_command_register("e", "Edit file", cmd_edit);

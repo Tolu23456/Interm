@@ -8,7 +8,8 @@ typedef enum {
     IM_UI_BUFFER_VIEW,
     IM_UI_STATUS_BAR,
     IM_UI_COMMAND_PALETTE,
-    IM_UI_SPLIT_CONTAINER
+    IM_UI_FILE_EXPLORER,
+    IM_UI_NOTIFICATION
 } im_ui_type_t;
 
 typedef struct im_ui_component_t {
@@ -37,5 +38,6 @@ im_result_t im_ui_init();
 im_result_t im_ui_shutdown();
 im_result_t im_ui_render_all(im_screen_buffer_t* screen);
 im_result_t im_ui_layout_recompute();
+im_result_t im_ui_notify(const char* message);
 
 #endif // INTERM_UI_H

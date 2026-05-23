@@ -112,23 +112,8 @@ static size_t im_buffer_copy_range_internal(im_buffer_t* buf, size_t pos, size_t
         offset += curr->length;
         curr = (im_piece_t*)curr->next;
     }
-    // Correct curr and offset if pos is exactly at a piece boundary
-    // Loop above leaves curr pointing to the piece containing or starting after pos
-    if (curr == NULL && offset > pos) {
-         // This shouldn't happen given the while condition
-    }
-
     size_t bytes_copied = 0;
-    size_t local_offset = pos - (offset - (curr ? 0 : 0)); // wait logic is slightly messy
-    // Let's re-do the finding logic properly
-    curr = buf->head;
-    offset = 0;
-    while (curr && offset + curr->length <= pos) {
-        offset += curr->length;
-        curr = (im_piece_t*)curr->next;
-    }
-
-    local_offset = pos - offset;
+    size_t local_offset = pos - offset;
     while (curr && bytes_copied < len) {
         size_t to_copy = curr->length - local_offset;
         if (bytes_copied + to_copy > len) to_copy = len - bytes_copied;

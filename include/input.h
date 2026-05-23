@@ -34,17 +34,21 @@ typedef enum {
 
 typedef struct {
     im_key_code_t code;
-    uint32_t ch;        // Unicode codepoint for IM_KEY_CHAR
-    uint16_t modifiers; // Bitmask of im_modifier_t
+    uint32_t ch;
+    uint16_t modifiers;
     uint64_t timestamp;
 } im_key_event_t;
 
+typedef struct im_key_node_t {
+    im_key_event_t key;
+    struct im_key_node_t* children;
+    struct im_key_node_t* next;
+    const char* command;
+} im_key_node_t;
+
 im_result_t im_input_init();
 im_result_t im_input_shutdown();
-
-/**
- * Processes raw bytes from terminal and emits key events.
- */
 im_result_t im_input_process_raw(const uint8_t* buf, size_t len);
+im_result_t im_input_bind(const char* sequence, const char* command);
 
 #endif // INTERM_INPUT_H
