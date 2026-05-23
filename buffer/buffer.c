@@ -4,6 +4,7 @@
 
 static im_piece_t* create_piece(im_piece_source_t source, size_t start, size_t length) {
     im_piece_t* piece = (im_piece_t*)malloc(sizeof(im_piece_t));
+    if (!piece) return NULL;
     piece->source = source;
     piece->start = start;
     piece->length = length;
@@ -16,6 +17,7 @@ static void update_line_indexing(im_buffer_t* buf) {
     if (!buf->line_offsets) {
         buf->line_capacity = 1024;
         buf->line_offsets = (size_t*)malloc(buf->line_capacity * sizeof(size_t));
+        if (!buf->line_offsets) return;
     }
     buf->line_count = 0;
     buf->line_offsets[buf->line_count++] = 0;
@@ -26,8 +28,11 @@ static void update_line_indexing(im_buffer_t* buf) {
         for (size_t i = 0; i < curr->length; i++) {
             if (data[curr->start + i] == '\n') {
                 if (buf->line_count >= buf->line_capacity) {
-                    buf->line_capacity *= 2;
-                    buf->line_offsets = (size_t*)realloc(buf->line_offsets, buf->line_capacity * sizeof(size_t));
+                    size_t new_cap = buf->line_capacity * 2;
+                    size_t* new_offsets = (size_t*)realloc(buf->line_offsets, new_cap * sizeof(size_t));
+                    if (!new_offsets) return;
+                    buf->line_offsets = new_offsets;
+                    buf->line_capacity = new_cap;
                 }
                 buf->line_offsets[buf->line_count++] = total_offset + i + 1;
             }
@@ -42,13 +47,16 @@ im_result_t im_buffer_init(im_buffer_t* buf, const char* initial_text, size_t si
     pthread_mutex_init(&buf->mutex, NULL);
     if (initial_text && size > 0) {
         buf->original_data = (char*)malloc(size);
+        if (!buf->original_data) return IM_ERR_NOMEM;
         memcpy(buf->original_data, initial_text, size);
         buf->original_size = size;
         buf->head = create_piece(IM_SOURCE_ORIGINAL, 0, size);
+        if (!buf->head) return IM_ERR_NOMEM;
         buf->total_length = size;
     }
     buf->add_capacity = 4096;
     buf->add_data = (char*)malloc(buf->add_capacity);
+    if (!buf->add_data) return IM_ERR_NOMEM;
     update_line_indexing(buf);
     return IM_OK;
 }
@@ -84,8 +92,11 @@ im_result_t im_buffer_destroy(im_buffer_t* buf) {
 
 static size_t append_to_add_buffer(im_buffer_t* buf, const char* text, size_t len) {
     if (buf->add_size + len > buf->add_capacity) {
-        buf->add_capacity = (buf->add_size + len) * 2;
-        buf->add_data = (char*)realloc(buf->add_data, buf->add_capacity);
+        size_t new_cap = (buf->add_size + len) * 2;
+        char* new_data = (char*)realloc(buf->add_data, new_cap);
+        if (!new_data) return 0;
+        buf->add_data = new_data;
+        buf->add_capacity = new_cap;
     }
     size_t start = buf->add_size;
     memcpy(buf->add_data + start, text, len);
@@ -93,21 +104,31 @@ static size_t append_to_add_buffer(im_buffer_t* buf, const char* text, size_t le
     return start;
 }
 
-size_t im_buffer_copy_range(im_buffer_t* buf, size_t pos, size_t len, char* dest) {
-    pthread_mutex_lock(&buf->mutex);
-    if (pos + len > buf->total_length) {
-        pthread_mutex_unlock(&buf->mutex);
-        return 0;
-    }
+static size_t im_buffer_copy_range_internal(im_buffer_t* buf, size_t pos, size_t len, char* dest) {
+    if (pos + len > buf->total_length) return 0;
     im_piece_t* curr = buf->head;
     size_t offset = 0;
     while (curr && offset + curr->length <= pos) {
-        if (offset + curr->length == pos && curr->next) break;
         offset += curr->length;
         curr = (im_piece_t*)curr->next;
     }
+    // Correct curr and offset if pos is exactly at a piece boundary
+    // Loop above leaves curr pointing to the piece containing or starting after pos
+    if (curr == NULL && offset > pos) {
+         // This shouldn't happen given the while condition
+    }
+
     size_t bytes_copied = 0;
-    size_t local_offset = pos - offset;
+    size_t local_offset = pos - (offset - (curr ? 0 : 0)); // wait logic is slightly messy
+    // Let's re-do the finding logic properly
+    curr = buf->head;
+    offset = 0;
+    while (curr && offset + curr->length <= pos) {
+        offset += curr->length;
+        curr = (im_piece_t*)curr->next;
+    }
+
+    local_offset = pos - offset;
     while (curr && bytes_copied < len) {
         size_t to_copy = curr->length - local_offset;
         if (bytes_copied + to_copy > len) to_copy = len - bytes_copied;
@@ -117,8 +138,14 @@ size_t im_buffer_copy_range(im_buffer_t* buf, size_t pos, size_t len, char* dest
         local_offset = 0;
         curr = (im_piece_t*)curr->next;
     }
-    pthread_mutex_unlock(&buf->mutex);
     return bytes_copied;
+}
+
+size_t im_buffer_copy_range(im_buffer_t* buf, size_t pos, size_t len, char* dest) {
+    pthread_mutex_lock(&buf->mutex);
+    size_t res = im_buffer_copy_range_internal(buf, pos, len, dest);
+    pthread_mutex_unlock(&buf->mutex);
+    return res;
 }
 
 char* im_buffer_get_range(im_buffer_t* buf, size_t pos, size_t len) {
@@ -136,20 +163,27 @@ size_t im_buffer_get_line_count(im_buffer_t* buf) {
     return count;
 }
 
+static void free_undo_record(im_undo_record_t* rec) {
+    if (!rec) return;
+    free(rec->text);
+    free(rec);
+}
+
 static void push_undo(im_buffer_t* buf, im_edit_type_t type, size_t pos, const char* text, size_t len) {
     im_undo_record_t* rec = (im_undo_record_t*)malloc(sizeof(im_undo_record_t));
+    if (!rec) return;
     rec->type = type;
     rec->pos = pos;
     rec->len = len;
     rec->text = (char*)malloc(len + 1);
+    if (!rec->text) { free(rec); return; }
     memcpy(rec->text, text, len);
     rec->text[len] = '\0';
     rec->next = buf->undo_stack;
     buf->undo_stack = rec;
     while (buf->redo_stack) {
         im_undo_record_t* next = buf->redo_stack->next;
-        free(buf->redo_stack->text);
-        free(buf->redo_stack);
+        free_undo_record(buf->redo_stack);
         buf->redo_stack = next;
     }
 }
@@ -159,6 +193,7 @@ static im_result_t im_buffer_insert_internal(im_buffer_t* buf, size_t pos, const
     if (len == 0) return IM_OK;
     size_t add_start = append_to_add_buffer(buf, text, len);
     im_piece_t* new_piece = create_piece(IM_SOURCE_ADD, add_start, len);
+    if (!new_piece) return IM_ERR_NOMEM;
     if (buf->head == NULL) {
         buf->head = new_piece;
         buf->total_length = len;
@@ -194,6 +229,7 @@ static im_result_t im_buffer_insert_internal(im_buffer_t* buf, size_t pos, const
             curr->next = (struct im_piece_t*)new_piece;
         } else {
             im_piece_t* second_half = create_piece(curr->source, curr->start + local_offset, curr->length - local_offset);
+            if (!second_half) return IM_ERR_NOMEM;
             curr->length = local_offset;
             second_half->next = curr->next;
             if (curr->next) ((im_piece_t*)curr->next)->prev = (struct im_piece_t*)second_half;
@@ -214,7 +250,6 @@ static im_result_t im_buffer_delete_internal(im_buffer_t* buf, size_t pos, size_
     im_piece_t* curr = buf->head;
     size_t offset = 0;
     while (curr && offset + curr->length <= pos) {
-        if (offset + curr->length == pos && curr->next) break;
         offset += curr->length;
         curr = (im_piece_t*)curr->next;
     }
@@ -222,6 +257,10 @@ static im_result_t im_buffer_delete_internal(im_buffer_t* buf, size_t pos, size_
     while (curr && remaining_len > 0) {
         size_t local_offset = pos > offset ? pos - offset : 0;
         size_t available = curr->length - local_offset;
+        if (available == 0) {
+            curr = (im_piece_t*)curr->next;
+            continue;
+        }
         size_t to_delete = (available < remaining_len) ? available : remaining_len;
         if (local_offset == 0 && to_delete == curr->length) {
             im_piece_t* to_free = curr;
@@ -239,6 +278,7 @@ static im_result_t im_buffer_delete_internal(im_buffer_t* buf, size_t pos, size_
             curr = (im_piece_t*)curr->next;
         } else {
             im_piece_t* second_half = create_piece(curr->source, curr->start + local_offset + to_delete, curr->length - (local_offset + to_delete));
+            if (!second_half) return IM_ERR_NOMEM;
             curr->length = local_offset;
             second_half->next = curr->next;
             if (curr->next) ((im_piece_t*)curr->next)->prev = (struct im_piece_t*)second_half;
@@ -265,7 +305,10 @@ im_result_t im_buffer_insert(im_buffer_t* buf, size_t pos, const char* text, siz
 im_result_t im_buffer_delete(im_buffer_t* buf, size_t pos, size_t len) {
     if (len == 0) return IM_OK;
     pthread_mutex_lock(&buf->mutex);
-    char* deleted_text = im_buffer_get_range(buf, pos, len);
+    char* deleted_text = (char*)malloc(len + 1);
+    if (!deleted_text) { pthread_mutex_unlock(&buf->mutex); return IM_ERR_NOMEM; }
+    im_buffer_copy_range_internal(buf, pos, len, deleted_text);
+    deleted_text[len] = '\0';
     im_result_t res = im_buffer_delete_internal(buf, pos, len);
     if (res == IM_OK) push_undo(buf, IM_EDIT_DELETE, pos, deleted_text, len);
     free(deleted_text);
