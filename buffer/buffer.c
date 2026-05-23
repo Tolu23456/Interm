@@ -63,7 +63,6 @@ im_result_t im_buffer_init(im_buffer_t* buf, const char* initial_text, size_t si
 
 im_result_t im_buffer_destroy(im_buffer_t* buf) {
     if (!buf) return IM_ERR;
-    pthread_mutex_lock(&buf->mutex);
     im_piece_t* curr = buf->head;
     while (curr) {
         im_piece_t* next = (im_piece_t*)curr->next;
@@ -85,7 +84,6 @@ im_result_t im_buffer_destroy(im_buffer_t* buf) {
         free(buf->redo_stack);
         buf->redo_stack = next;
     }
-    pthread_mutex_unlock(&buf->mutex);
     pthread_mutex_destroy(&buf->mutex);
     return IM_OK;
 }
@@ -242,10 +240,7 @@ static im_result_t im_buffer_delete_internal(im_buffer_t* buf, size_t pos, size_
     while (curr && remaining_len > 0) {
         size_t local_offset = pos > offset ? pos - offset : 0;
         size_t available = curr->length - local_offset;
-        if (available == 0) {
-            curr = (im_piece_t*)curr->next;
-            continue;
-        }
+        if (available == 0) { curr = (im_piece_t*)curr->next; continue; }
         size_t to_delete = (available < remaining_len) ? available : remaining_len;
         if (local_offset == 0 && to_delete == curr->length) {
             im_piece_t* to_free = curr;
@@ -303,10 +298,7 @@ im_result_t im_buffer_delete(im_buffer_t* buf, size_t pos, size_t len) {
 
 im_result_t im_buffer_undo(im_buffer_t* buf) {
     pthread_mutex_lock(&buf->mutex);
-    if (!buf->undo_stack) {
-        pthread_mutex_unlock(&buf->mutex);
-        return IM_ERR;
-    }
+    if (!buf->undo_stack) { pthread_mutex_unlock(&buf->mutex); return IM_ERR; }
     im_undo_record_t* rec = buf->undo_stack;
     buf->undo_stack = rec->next;
     if (rec->type == IM_EDIT_INSERT) im_buffer_delete_internal(buf, rec->pos, rec->len);
@@ -319,10 +311,7 @@ im_result_t im_buffer_undo(im_buffer_t* buf) {
 
 im_result_t im_buffer_redo(im_buffer_t* buf) {
     pthread_mutex_lock(&buf->mutex);
-    if (!buf->redo_stack) {
-        pthread_mutex_unlock(&buf->mutex);
-        return IM_ERR;
-    }
+    if (!buf->redo_stack) { pthread_mutex_unlock(&buf->mutex); return IM_ERR; }
     im_undo_record_t* rec = buf->redo_stack;
     buf->redo_stack = rec->next;
     if (rec->type == IM_EDIT_INSERT) im_buffer_insert_internal(buf, rec->pos, rec->text, rec->len);
