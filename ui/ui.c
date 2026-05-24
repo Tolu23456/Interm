@@ -2,6 +2,7 @@
 #include "state.h"
 #include "terminal.h"
 #include "syntax.h"
+#include "config.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -13,19 +14,18 @@ static size_t g_line_scratch_cap = 0;
 static char g_notification[128] = "";
 
 static uint32_t get_token_color(im_token_type_t type) {
+    im_config_t* cfg = im_config_get();
     switch (type) {
-        case IM_TOKEN_KEYWORD: return 0x569CD6;
-        case IM_TOKEN_STRING: return 0xCE9178;
-        case IM_TOKEN_NUMBER: return 0xB5CEA8;
-        case IM_TOKEN_COMMENT: return 0x6A9955;
-        case IM_TOKEN_OPERATOR: return 0xD4D4D4;
-        case IM_TOKEN_IDENTIFIER: return 0x9CDCFE;
-        default: return 0xCCCCCC;
+        case IM_TOKEN_KEYWORD: return cfg->theme.keyword;
+        case IM_TOKEN_STRING: return cfg->theme.string;
+        case IM_TOKEN_COMMENT: return cfg->theme.comment;
+        default: return cfg->theme.fg;
     }
 }
 
 static void render_buffer_view(im_ui_component_t* self, im_screen_buffer_t* screen) {
     im_editor_state_t* state = im_state_get();
+    im_config_t* cfg = im_config_get();
     if (!state->active_buffer) return;
     if (g_line_scratch_cap < self->width + 1) {
         g_line_scratch_cap = self->width + 1;
@@ -39,7 +39,7 @@ static void render_buffer_view(im_ui_component_t* self, im_screen_buffer_t* scre
     bool in_visual = (state->mode == IM_MODE_VISUAL);
     pthread_mutex_unlock(&state->mutex);
 
-    uint32_t start_line = 0; uint32_t line_num_width = 4;
+    uint32_t start_line = 0; uint32_t line_num_width = cfg->line_numbers ? 4 : 0;
     for (uint32_t i = 0; i < self->height && (start_line + i) < state->active_buffer->line_count; i++) {
         size_t line_idx = start_line + i;
         pthread_mutex_lock(&state->active_buffer->mutex);
@@ -51,18 +51,20 @@ static void render_buffer_view(im_ui_component_t* self, im_screen_buffer_t* scre
         size_t copied = im_buffer_copy_range(state->active_buffer, line_start, to_copy, g_line_scratch);
         g_line_scratch[copied] = '\0';
         if (copied > 0 && (g_line_scratch[copied-1] == '\n' || g_line_scratch[copied-1] == '\r')) copied--;
-        char ln_buf[16]; snprintf(ln_buf, sizeof(ln_buf), "%3zu ", line_idx + 1);
-        for (uint32_t x = 0; x < line_num_width; x++) {
-            uint32_t idx = (self->y + i) * screen->width + (self->x + x);
-            screen->cells[idx].character = (x < strlen(ln_buf)) ? ln_buf[x] : ' ';
-            screen->cells[idx].fg_color = 0x858585; screen->cells[idx].bg_color = 0x1E1E1E;
+        if (cfg->line_numbers) {
+            char ln_buf[16]; snprintf(ln_buf, sizeof(ln_buf), "%3zu ", line_idx + 1);
+            for (uint32_t x = 0; x < line_num_width; x++) {
+                uint32_t idx = (self->y + i) * screen->width + (self->x + x);
+                screen->cells[idx].character = (x < strlen(ln_buf)) ? ln_buf[x] : ' ';
+                screen->cells[idx].fg_color = 0x858585; screen->cells[idx].bg_color = cfg->theme.bg;
+            }
         }
         im_token_t tokens[256]; size_t token_count = 0;
         im_syntax_tokenize_line(g_line_scratch, copied, tokens, &token_count, 256);
         for (uint32_t x = 0; x < self->width - line_num_width; x++) {
             uint32_t idx = (self->y + i) * screen->width + (self->x + line_num_width + x);
             screen->cells[idx].character = (x < copied) ? g_line_scratch[x] : ' ';
-            screen->cells[idx].fg_color = 0xCCCCCC; screen->cells[idx].bg_color = 0x1E1E1E; screen->cells[idx].style = 0;
+            screen->cells[idx].fg_color = cfg->theme.fg; screen->cells[idx].bg_color = cfg->theme.bg; screen->cells[idx].style = 0;
             if (in_visual && x < copied) {
                 size_t abs_pos = line_start + x;
                 if (abs_pos >= sel_min && abs_pos <= sel_max) screen->cells[idx].bg_color = 0x264F78;

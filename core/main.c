@@ -34,6 +34,7 @@ static im_result_t cmd_save(const char* args, bool force) {
     im_result_t res = im_storage_save(&g_main_buffer, path);
     if (res == IM_OK) {
         if (args && strlen(args) > 0) strncpy(g_active_file, args, sizeof(g_active_file)-1);
+        im_ui_notify("File saved successfully");
     }
     return res;
 }
@@ -43,8 +44,10 @@ static im_result_t cmd_edit(const char* args, bool force) {
     if (!args || strlen(args) == 0) return IM_ERR_INVALID_ARG;
     im_buffer_t new_buf;
     if (im_storage_load(&new_buf, args) == IM_OK) {
+        pthread_mutex_lock(&g_main_buffer.mutex);
         im_buffer_destroy(&g_main_buffer);
         g_main_buffer = new_buf;
+        pthread_mutex_unlock(&g_main_buffer.mutex);
         im_state_set_active_buffer(&g_main_buffer);
         strncpy(g_active_file, args, sizeof(g_active_file)-1);
         im_editor_state_t* state = im_state_get();
@@ -53,6 +56,7 @@ static im_result_t cmd_edit(const char* args, bool force) {
         state->cursors[state->primary_cursor_idx].anchor = 0;
         state->cursors[state->primary_cursor_idx].has_selection = false;
         pthread_mutex_unlock(&state->mutex);
+        im_ui_notify("File loaded");
         return IM_OK;
     }
     return IM_ERR;
@@ -82,7 +86,7 @@ static void on_key_press(im_event_t* event, void* user_data) {
                         state->command_buffer[0] = '\0';
                         break;
                     case 'i': state->mode = IM_MODE_INSERT; break;
-                    case 'a': cursor->pos++; state->mode = IM_MODE_INSERT; break;
+                    case 'a': cursor->pos++; if(cursor->pos > g_main_buffer.total_length) cursor->pos = g_main_buffer.total_length; state->mode = IM_MODE_INSERT; break;
                     case 'v':
                         if (state->mode == IM_MODE_VISUAL) state->mode = IM_MODE_NORMAL;
                         else {
@@ -123,13 +127,13 @@ static void on_key_press(im_event_t* event, void* user_data) {
                         break;
                     }
                     case 'w': {
-                        char buf[1024]; size_t offset = cursor->pos; bool found = false;
+                        char b[64]; size_t offset = cursor->pos; bool found = false;
                         while (offset < g_main_buffer.total_length && !found) {
-                            size_t to_read = (g_main_buffer.total_length - offset < 1024) ? g_main_buffer.total_length - offset : 1024;
-                            im_buffer_copy_range(&g_main_buffer, offset, to_read, buf);
+                            size_t to_read = (g_main_buffer.total_length - offset < 64) ? g_main_buffer.total_length - offset : 64;
+                            im_buffer_copy_range(&g_main_buffer, offset, to_read, b);
                             size_t i = 0;
-                            if (offset == cursor->pos) { while (i < to_read && isalnum(buf[i])) i++; }
-                            while (i < to_read && !isalnum(buf[i])) i++;
+                            if (offset == cursor->pos) { while (i < to_read && isalnum(b[i])) i++; }
+                            while (i < to_read && !isalnum(b[i])) i++;
                             if (i < to_read) { cursor->pos = offset + i; found = true; }
                             offset += to_read;
                         }
@@ -138,29 +142,29 @@ static void on_key_press(im_event_t* event, void* user_data) {
                     }
                     case 'b': {
                         if (cursor->pos == 0) break;
-                        char buf[1024]; long offset = (long)cursor->pos; bool found = false;
+                        char b[64]; long offset = (long)cursor->pos; bool found = false;
                         while (offset > 0 && !found) {
-                            size_t to_read = (offset < 1024) ? offset : 1024;
+                            size_t to_read = (offset < 64) ? offset : 64;
                             long start = offset - (long)to_read;
-                            im_buffer_copy_range(&g_main_buffer, (size_t)start, to_read, buf);
+                            im_buffer_copy_range(&g_main_buffer, (size_t)start, to_read, b);
                             int i = (int)to_read - 1;
-                            if (offset == (long)cursor->pos) { while (i >= 0 && !isalnum(buf[i])) i--; }
-                            while (i >= 0 && isalnum(buf[i])) i--;
+                            if (offset == (long)cursor->pos) { while (i >= 0 && !isalnum(b[i])) i--; }
+                            while (i >= 0 && isalnum(b[i])) i--;
                             if (i >= -1) { cursor->pos = (size_t)(start + i + 1); found = true; }
                             offset -= (long)to_read;
                         }
                         break;
                     }
                     case 'e': {
-                        char buf[1024]; size_t offset = cursor->pos; bool found = false;
+                        char b[64]; size_t offset = cursor->pos; bool found = false;
                         while (offset < g_main_buffer.total_length && !found) {
-                            size_t to_read = (g_main_buffer.total_length - offset < 1024) ? g_main_buffer.total_length - offset : 1024;
-                            im_buffer_copy_range(&g_main_buffer, offset, to_read, buf);
+                            size_t to_read = (g_main_buffer.total_length - offset < 64) ? g_main_buffer.total_length - offset : 64;
+                            im_buffer_copy_range(&g_main_buffer, offset, to_read, b);
                             size_t i = 0;
                             if (offset == cursor->pos) {
-                                if (i < to_read && !isalnum(buf[i])) { while (i < to_read && !isalnum(buf[i])) i++; }
+                                if (i < to_read && !isalnum(b[i])) { while (i < to_read && !isalnum(b[i])) i++; }
                             }
-                            while (i < to_read && isalnum(buf[i])) i++;
+                            while (i < to_read && isalnum(b[i])) i++;
                             if (i > 0) { cursor->pos = offset + i - 1; found = true; }
                             offset += to_read;
                         }
@@ -245,9 +249,7 @@ static void on_key_press(im_event_t* event, void* user_data) {
 int main(int argc, char *argv[]) {
     (void)argc; (void)argv;
     if (im_boot_init() != IM_OK) return 1;
-
     im_config_load("interm.conf");
-
     im_command_register("q", "Quit editor", cmd_quit);
     im_command_register("w", "Save/Write buffer", cmd_save);
     im_command_register("e", "Edit file", cmd_edit);
