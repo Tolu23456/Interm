@@ -39,6 +39,8 @@ typedef struct {
     size_t scroll_row;
     size_t scroll_col;
 
+    bool dirty;
+
     pthread_mutex_t mutex;
 } im_editor_state_t;
 
@@ -49,5 +51,6 @@ im_editor_state_t* im_state_get();
 
 im_result_t im_state_set_mode(im_mode_t mode);
 im_result_t im_state_set_active_buffer(im_buffer_t* buf);
+im_result_t im_state_mark_dirty();
 
 #endif // INTERM_STATE_H

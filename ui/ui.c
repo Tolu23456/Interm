@@ -239,3 +239,19 @@ im_result_t im_ui_notify(const char* message) {
     strncpy(g_notification, message, 127);
     return IM_OK;
 }
+
+static im_ui_component_t* find_component_recursive(im_layout_node_t* node, im_ui_type_t type) {
+    if (node->component && node->component->type == type) return node->component;
+    im_layout_node_t* child = node->children;
+    while (child) {
+        im_ui_component_t* found = find_component_recursive(child, type);
+        if (found) return found;
+        child = child->next;
+    }
+    return NULL;
+}
+
+im_ui_component_t* im_ui_get_component(im_ui_type_t type) {
+    if (!g_root_node) return NULL;
+    return find_component_recursive(g_root_node, type);
+}

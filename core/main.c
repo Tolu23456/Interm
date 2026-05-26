@@ -53,7 +53,7 @@ static im_result_t cmd_edit(const char* args, bool force) {
     if (im_storage_load(&new_buf, args) == IM_OK) {
         pthread_mutex_lock(&g_main_buffer.mutex);
         im_buffer_destroy(&g_main_buffer);
-        g_main_buffer = new_buf;
+        memcpy(&g_main_buffer, &new_buf, sizeof(im_buffer_t));
         pthread_mutex_unlock(&g_main_buffer.mutex);
         im_state_set_active_buffer(&g_main_buffer);
         strncpy(g_active_file, args, sizeof(g_active_file)-1);
@@ -63,6 +63,7 @@ static im_result_t cmd_edit(const char* args, bool force) {
         state->cursors[state->primary_cursor_idx].anchor = 0;
         state->cursors[state->primary_cursor_idx].has_selection = false;
         state->scroll_row = 0; state->scroll_col = 0;
+        state->dirty = true;
         pthread_mutex_unlock(&state->mutex);
         im_ui_notify("File loaded");
         return IM_OK;
@@ -78,12 +79,16 @@ static void update_scrolling(im_editor_state_t* state) {
     while (line < state->active_buffer->line_count - 1 && state->active_buffer->line_offsets[line+1] <= cursor->pos) line++;
     size_t col = cursor->pos - state->active_buffer->line_offsets[line];
     pthread_mutex_unlock(&state->active_buffer->mutex);
-    int vh = 22;
-    if (line < state->scroll_row) state->scroll_row = line;
-    else if (line >= state->scroll_row + vh) state->scroll_row = line - vh + 1;
-    int vw = 60;
-    if (col < state->scroll_col) state->scroll_col = col;
-    else if (col >= state->scroll_col + vw) state->scroll_col = col - vw + 1;
+
+    im_ui_component_t* bv = im_ui_get_component(IM_UI_BUFFER_VIEW);
+    int vh = bv ? (int)bv->height : 22;
+    int vw = bv ? (int)bv->width - 4 : 60; // Subtract line number width
+
+    if (line < state->scroll_row) { state->scroll_row = line; state->dirty = true; }
+    else if (line >= state->scroll_row + vh) { state->scroll_row = line - vh + 1; state->dirty = true; }
+
+    if (col < state->scroll_col) { state->scroll_col = col; state->dirty = true; }
+    else if (col >= state->scroll_col + vw) { state->scroll_col = col - vw + 1; state->dirty = true; }
 }
 
 static void handle_motion(im_key_code_t code, im_cursor_t* cursor, im_buffer_t* buf) {
@@ -119,6 +124,7 @@ static void on_key_press(im_event_t* event, void* user_data) {
     im_editor_state_t* state = im_state_get();
     pthread_mutex_lock(&state->mutex);
     im_cursor_t* cursor = &state->cursors[state->primary_cursor_idx];
+    state->dirty = true;
     if (state->mode == IM_MODE_NORMAL || state->mode == IM_MODE_VISUAL) {
         if (key->code == IM_KEY_ESC) { state->mode = IM_MODE_NORMAL; cursor->has_selection = false; cursor->anchor = cursor->pos; }
         else if (key->code == IM_KEY_UP || key->code == IM_KEY_DOWN || key->code == IM_KEY_LEFT || key->code == IM_KEY_RIGHT) { handle_motion(key->code, cursor, &g_main_buffer); }
@@ -234,6 +240,7 @@ int main(int argc, char *argv[]) {
             g_resize_pending = 0;
             im_ui_layout_recompute();
             im_render_invalidate_all();
+            im_state_mark_dirty();
         }
         int res = poll(&pfd, 1, 10);
         if (res > 0 && (pfd.revents & POLLIN)) {
@@ -242,10 +249,15 @@ int main(int argc, char *argv[]) {
         }
         im_editor_state_t* state = im_state_get();
         pthread_mutex_lock(&state->mutex);
-        im_screen_buffer_t* screen = im_render_get_current_buffer();
-        im_ui_render_all(screen);
-        pthread_mutex_unlock(&state->mutex);
-        im_render_frame();
+        if (state->dirty) {
+            im_screen_buffer_t* screen = im_render_get_current_buffer();
+            im_ui_render_all(screen);
+            state->dirty = false;
+            pthread_mutex_unlock(&state->mutex);
+            im_render_frame();
+        } else {
+            pthread_mutex_unlock(&state->mutex);
+        }
     }
     im_buffer_destroy(&g_main_buffer);
     im_boot_shutdown();
