@@ -70,7 +70,7 @@ static void* worker_proc(void* arg) {
 }
 
 im_result_t im_task_init() {
-    printf("  Async Runtime: Initializing with %d workers...\n", MAX_WORKERS);
+
     
     g_task_queue.count = 0;
     pthread_mutex_init(&g_task_queue.mutex, NULL);
@@ -85,7 +85,7 @@ im_result_t im_task_init() {
 }
 
 im_result_t im_task_shutdown() {
-    printf("  Async Runtime: Shutting down...\n");
+
     
     g_running = false;
     pthread_mutex_lock(&g_task_queue.mutex);

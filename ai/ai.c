@@ -13,7 +13,7 @@ static im_ai_provider_t* g_providers[8];
 static int g_provider_count = 0;
 
 im_result_t im_ai_init() {
-    printf("  AI Engine: Initializing Context Engine...\n");
+
     g_provider_count = 0;
     return IM_OK;
 }

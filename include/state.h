@@ -36,6 +36,9 @@ typedef struct {
     char command_buffer[MAX_COMMAND_LEN];
     size_t command_len;
 
+    size_t scroll_row;
+    size_t scroll_col;
+
     pthread_mutex_t mutex;
 } im_editor_state_t;
 

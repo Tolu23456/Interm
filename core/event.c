@@ -75,29 +75,32 @@ static void* event_dispatch_proc(void* arg) {
 }
 
 im_result_t im_event_init() {
-    printf("  Event System: Initializing...\n");
     g_sub_manager.count = 0;
     pthread_mutex_init(&g_sub_manager.mutex, NULL);
-
     g_event_queue.head = 0;
     g_event_queue.tail = 0;
     g_event_queue.count = 0;
     pthread_mutex_init(&g_event_queue.mutex, NULL);
     pthread_cond_init(&g_event_queue.cond, NULL);
-
     g_running = true;
     pthread_create(&g_event_thread, NULL, event_dispatch_proc, NULL);
-
     return IM_OK;
 }
 
 im_result_t im_event_shutdown() {
-    printf("  Event System: Shutting down...\n");
     g_running = false;
     pthread_mutex_lock(&g_event_queue.mutex);
     pthread_cond_signal(&g_event_queue.cond);
     pthread_mutex_unlock(&g_event_queue.mutex);
     pthread_join(g_event_thread, NULL);
+
+    // Free remaining payloads in queue
+    while (g_event_queue.count > 0) {
+        im_event_t ev = g_event_queue.events[g_event_queue.head];
+        if (ev.payload) free(ev.payload);
+        g_event_queue.head = (g_event_queue.head + 1) % MAX_PENDING_EVENTS;
+        g_event_queue.count--;
+    }
 
     pthread_mutex_destroy(&g_sub_manager.mutex);
     pthread_mutex_destroy(&g_event_queue.mutex);
@@ -109,13 +112,12 @@ im_result_t im_event_emit(im_event_t event) {
     pthread_mutex_lock(&g_event_queue.mutex);
     if (g_event_queue.count >= MAX_PENDING_EVENTS) {
         pthread_mutex_unlock(&g_event_queue.mutex);
+        if (event.payload) free(event.payload);
         return IM_ERR;
     }
-
     g_event_queue.events[g_event_queue.tail] = event;
     g_event_queue.tail = (g_event_queue.tail + 1) % MAX_PENDING_EVENTS;
     g_event_queue.count++;
-
     pthread_cond_signal(&g_event_queue.cond);
     pthread_mutex_unlock(&g_event_queue.mutex);
     return IM_OK;

@@ -11,7 +11,7 @@ typedef struct {
 static im_git_status_t g_git_status;
 
 im_result_t im_git_init() {
-    printf("  Git Integration: Initializing observer...\n");
+
     g_git_status.current_branch[0] = '\0';
     g_git_status.dirty_count = 0;
     return IM_OK;

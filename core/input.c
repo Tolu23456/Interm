@@ -9,16 +9,27 @@
 static im_key_node_t* g_root_node = NULL;
 static im_key_node_t* g_current_match = NULL;
 
+static void free_key_node(im_key_node_t* node) {
+    if (!node) return;
+    im_key_node_t* child = node->children;
+    while (child) {
+        im_key_node_t* next = child->next;
+        free_key_node(child);
+        child = next;
+    }
+    if (node->command) free((void*)node->command);
+    free(node);
+}
+
 im_result_t im_input_init() {
-    printf("  Input System: Initializing Chord Engine...\n");
     g_root_node = calloc(1, sizeof(im_key_node_t));
     g_current_match = g_root_node;
     return IM_OK;
 }
 
 im_result_t im_input_shutdown() {
-    // Should recursively free nodes
-    free(g_root_node);
+    free_key_node(g_root_node);
+    g_root_node = NULL;
     return IM_OK;
 }
 
@@ -35,7 +46,6 @@ static void emit_key(im_key_code_t code, uint32_t ch, uint16_t mods) {
     event.ch = ch;
     event.modifiers = mods;
 
-    // Chord resolution
     im_key_node_t* child = g_current_match->children;
     bool found = false;
     while (child) {
@@ -54,14 +64,16 @@ static void emit_key(im_key_code_t code, uint32_t ch, uint16_t mods) {
 
     if (!found) {
         g_current_match = g_root_node;
-        im_event_t ev;
+        im_event_t ev = {0};
         ev.type = IM_EVENT_KEY_PRESS;
         ev.priority = IM_PRIORITY_CRITICAL;
         ev.timestamp = event.timestamp;
         ev.payload = malloc(sizeof(im_key_event_t));
-        memcpy(ev.payload, &event, sizeof(im_key_event_t));
-        ev.payload_size = sizeof(im_key_event_t);
-        im_event_emit(ev);
+        if (ev.payload) {
+            memcpy(ev.payload, &event, sizeof(im_key_event_t));
+            ev.payload_size = sizeof(im_key_event_t);
+            im_event_emit(ev);
+        }
     }
 }
 
@@ -92,8 +104,8 @@ im_result_t im_input_process_raw(const uint8_t* buf, size_t len) {
 
 im_result_t im_input_bind(const char* sequence, const char* command) {
     im_key_node_t* curr = g_root_node;
-    // Simplified: sequence is just one char for now, but infrastructure is hierarchical
     im_key_node_t* node = calloc(1, sizeof(im_key_node_t));
+    if (!node) return IM_ERR_NOMEM;
     node->key.code = IM_KEY_CHAR;
     node->key.ch = sequence[0];
     node->command = strdup(command);
