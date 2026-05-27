@@ -224,7 +224,10 @@ static void on_key_press(im_event_t* event, void* user_data) {
 int main(int argc, char *argv[]) {
     (void)argc; (void)argv;
     signal(SIGWINCH, handle_sigwinch);
-    if (im_boot_init() != IM_OK) return 1;
+    if (im_boot_init() != IM_OK) {
+        fprintf(stderr, "Error: Failed to initialize INTERM subsystems.\n");
+        return 1;
+    }
     im_config_load("interm.conf");
     im_command_register("q", "Quit editor", cmd_quit);
     im_command_register("w", "Save/Write buffer", cmd_save);

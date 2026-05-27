@@ -16,13 +16,17 @@ static void free_screen(im_screen_buffer_t* screen) {
     screen->dirty_rows = NULL;
 }
 
-static void alloc_screen(im_screen_buffer_t* screen, uint32_t w, uint32_t h) {
+static void alloc_screen(im_screen_buffer_t* screen, uint32_t w, uint32_t h, bool clear) {
     screen->width = w;
     screen->height = h;
     screen->cells = (im_cell_t*)malloc(w * h * sizeof(im_cell_t));
     screen->dirty_rows = (bool*)malloc(h * sizeof(bool));
-    for (uint32_t i = 0; i < w * h; i++) {
-        screen->cells[i] = (im_cell_t){' ', 0xFFFFFF, 0x000000, 0, 1};
+    if (clear) {
+        for (uint32_t i = 0; i < w * h; i++) {
+            screen->cells[i] = (im_cell_t){' ', 0xFFFFFF, 0x000000, 0, 1};
+        }
+    } else {
+        memset(screen->cells, 0, w * h * sizeof(im_cell_t));
     }
     memset(screen->dirty_rows, true, h * sizeof(bool));
 }
@@ -33,8 +37,8 @@ im_result_t im_render_init() {
         w = 80; h = 24;
     }
     
-    alloc_screen(&g_curr_screen, (uint32_t)w, (uint32_t)h);
-    alloc_screen(&g_prev_screen, (uint32_t)w, (uint32_t)h);
+    alloc_screen(&g_curr_screen, (uint32_t)w, (uint32_t)h, true);
+    alloc_screen(&g_prev_screen, (uint32_t)w, (uint32_t)h, false);
     
     printf("\033[?1049h");
     printf("\033[2J\033[H");
