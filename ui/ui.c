@@ -155,14 +155,27 @@ static void apply_layout(im_layout_node_t* node, uint32_t x, uint32_t y, uint32_
     }
     if (node->children) {
         uint32_t curr_x = x, curr_y = y;
+        uint32_t rem_w = w, rem_h = h;
         im_layout_node_t* child = node->children;
         while (child) {
             uint32_t cw = w, ch = h;
-            if (node->type == IM_LAYOUT_HORIZONTAL) cw = (uint32_t)(w * child->weight);
-            else ch = (uint32_t)(h * child->weight);
+            if (node->type == IM_LAYOUT_HORIZONTAL) {
+                cw = (child->next == NULL) ? rem_w : (uint32_t)(w * child->weight);
+                if (cw > rem_w) cw = rem_w;
+            } else {
+                ch = (child->next == NULL) ? rem_h : (uint32_t)(h * child->weight);
+                if (ch > rem_h) ch = rem_h;
+            }
+
             apply_layout(child, curr_x, curr_y, cw, ch);
-            if (node->type == IM_LAYOUT_HORIZONTAL) curr_x += cw;
-            else curr_y += ch;
+
+            if (node->type == IM_LAYOUT_HORIZONTAL) {
+                curr_x += cw;
+                rem_w -= cw;
+            } else {
+                curr_y += ch;
+                rem_h -= ch;
+            }
             child = child->next;
         }
     }
