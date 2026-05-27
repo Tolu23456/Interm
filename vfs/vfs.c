@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static im_result_t local_open(const char* path, im_handle_t* handle) {
     FILE* f = fopen(path, "r+");
@@ -19,6 +20,8 @@ static im_result_t local_read(im_handle_t handle, char* buf, size_t size, size_t
 
 static im_result_t local_write(im_handle_t handle, const char* buf, size_t size) {
     FILE* f = (FILE*)handle;
+    rewind(f);
+    if (ftruncate(fileno(f), 0) != 0) return IM_ERR_IO;
     fwrite(buf, 1, size, f);
     return IM_OK;
 }
@@ -38,7 +41,6 @@ static im_vfs_provider_t* g_providers[MAX_PROVIDERS];
 static int g_provider_count = 0;
 
 im_result_t im_vfs_init() {
-    printf("  VFS: Initializing...\n");
     g_provider_count = 0;
     im_vfs_register_provider(&g_local_provider);
     return IM_OK;
@@ -56,6 +58,5 @@ im_result_t im_vfs_open(const char* path, im_handle_t* handle) {
             return g_providers[i]->open(path, handle);
         }
     }
-    // Fallback to local without scheme
     return local_open(path, handle);
 }

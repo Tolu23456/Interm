@@ -13,7 +13,8 @@ typedef struct {
     im_piece_source_t source;
     size_t start;
     size_t length;
-    // For linked list implementation (simplest for piece table)
+    size_t line_count;
+    size_t* relative_line_offsets; // Offsets of newlines relative to piece start + 1
     struct im_piece_t* next;
     struct im_piece_t* prev;
 } im_piece_t;

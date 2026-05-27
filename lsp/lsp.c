@@ -18,7 +18,7 @@ static im_lsp_server_t* g_servers[16];
 static int g_server_count = 0;
 
 im_result_t im_lsp_init() {
-    printf("  LSP System: Initializing Client Manager...\n");
+
     g_server_count = 0;
     return IM_OK;
 }

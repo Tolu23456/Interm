@@ -7,7 +7,7 @@
 PyMODINIT_FUNC PyInit_interm(void);
 
 im_result_t im_python_init() {
-    printf("  Python Bridge: Initializing...\n");
+
     if (PyImport_AppendInittab("interm", PyInit_interm) == -1) return IM_ERR;
     Py_Initialize();
     // Safety: only allow absolute path for interm packages if needed,

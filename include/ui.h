@@ -39,5 +39,6 @@ im_result_t im_ui_shutdown();
 im_result_t im_ui_render_all(im_screen_buffer_t* screen);
 im_result_t im_ui_layout_recompute();
 im_result_t im_ui_notify(const char* message);
+im_ui_component_t* im_ui_get_component(im_ui_type_t type);
 
 #endif // INTERM_UI_H

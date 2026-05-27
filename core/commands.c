@@ -10,13 +10,13 @@ static im_command_t g_commands[MAX_REG_COMMANDS];
 static int g_command_count = 0;
 
 im_result_t im_command_init() {
-    printf("  Command System: Initializing...\n");
+
     g_command_count = 0;
     return IM_OK;
 }
 
 im_result_t im_command_shutdown() {
-    printf("  Command System: Shutting down...\n");
+
     return IM_OK;
 }
 

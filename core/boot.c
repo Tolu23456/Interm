@@ -16,7 +16,7 @@
 #include <stdio.h>
 
 im_result_t im_boot_init() {
-    printf("INTERM - Booting...\n");
+
     if (im_terminal_init() != IM_OK) return IM_ERR;
     if (im_state_init() != IM_OK) return IM_ERR;
     if (im_event_init() != IM_OK) return IM_ERR;
@@ -35,7 +35,7 @@ im_result_t im_boot_init() {
 }
 
 im_result_t im_boot_shutdown() {
-    printf("INTERM - Shutting down...\n");
+
     im_python_shutdown();
     im_ui_shutdown();
     im_render_shutdown();

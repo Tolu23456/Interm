@@ -7,7 +7,7 @@
 static im_config_t g_config;
 
 im_result_t im_config_init() {
-    printf("  Config System: Initializing...\n");
+
     g_config.tab_width = 4;
     g_config.line_numbers = true;
     g_config.word_wrap = false;

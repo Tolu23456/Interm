@@ -37,42 +37,52 @@ static void render_buffer_view(im_ui_component_t* self, im_screen_buffer_t* scre
     size_t sel_min = cursor->pos < cursor->anchor ? cursor->pos : cursor->anchor;
     size_t sel_max = cursor->pos > cursor->anchor ? cursor->pos : cursor->anchor;
     bool in_visual = (state->mode == IM_MODE_VISUAL);
+    size_t scroll_row = state->scroll_row;
+    size_t scroll_col = state->scroll_col;
     pthread_mutex_unlock(&state->mutex);
 
-    uint32_t start_line = 0; uint32_t line_num_width = cfg->line_numbers ? 4 : 0;
-    for (uint32_t i = 0; i < self->height && (start_line + i) < state->active_buffer->line_count; i++) {
-        size_t line_idx = start_line + i;
+    uint32_t line_num_width = cfg->line_numbers ? 4 : 0;
+    uint32_t content_width = self->width - line_num_width;
+
+    for (uint32_t i = 0; i < self->height && (scroll_row + i) < state->active_buffer->line_count; i++) {
+        size_t line_idx = scroll_row + i;
         pthread_mutex_lock(&state->active_buffer->mutex);
         size_t line_start = state->active_buffer->line_offsets[line_idx];
         size_t next_line = (line_idx + 1 < state->active_buffer->line_count) ? state->active_buffer->line_offsets[line_idx+1] : state->active_buffer->total_length;
         pthread_mutex_unlock(&state->active_buffer->mutex);
+
         size_t raw_len = next_line - line_start;
-        size_t to_copy = (raw_len < self->width) ? raw_len : self->width;
-        size_t copied = im_buffer_copy_range(state->active_buffer, line_start, to_copy, g_line_scratch);
+        size_t visible_start = line_start + (raw_len > scroll_col ? scroll_col : raw_len);
+        size_t visible_len = raw_len > scroll_col ? raw_len - scroll_col : 0;
+        if (visible_len > content_width) visible_len = content_width;
+
+        size_t copied = im_buffer_copy_range(state->active_buffer, visible_start, visible_len, g_line_scratch);
         g_line_scratch[copied] = '\0';
         if (copied > 0 && (g_line_scratch[copied-1] == '\n' || g_line_scratch[copied-1] == '\r')) copied--;
+
         if (cfg->line_numbers) {
-            char ln_buf[16]; snprintf(ln_buf, sizeof(ln_buf), "%3zu ", line_idx + 1);
+            char ln_buf[16]; snprintf(ln_buf, sizeof(ln_buf), "%zu ", (line_idx + 1) % 1000);
             for (uint32_t x = 0; x < line_num_width; x++) {
                 uint32_t idx = (self->y + i) * screen->width + (self->x + x);
                 screen->cells[idx].character = (x < strlen(ln_buf)) ? ln_buf[x] : ' ';
                 screen->cells[idx].fg_color = 0x858585; screen->cells[idx].bg_color = cfg->theme.bg;
             }
         }
+
         im_token_t tokens[256]; size_t token_count = 0;
         im_syntax_tokenize_line(g_line_scratch, copied, tokens, &token_count, 256);
-        for (uint32_t x = 0; x < self->width - line_num_width; x++) {
+        for (uint32_t x = 0; x < content_width; x++) {
             uint32_t idx = (self->y + i) * screen->width + (self->x + line_num_width + x);
             screen->cells[idx].character = (x < copied) ? g_line_scratch[x] : ' ';
             screen->cells[idx].fg_color = cfg->theme.fg; screen->cells[idx].bg_color = cfg->theme.bg; screen->cells[idx].style = 0;
             if (in_visual && x < copied) {
-                size_t abs_pos = line_start + x;
+                size_t abs_pos = visible_start + x;
                 if (abs_pos >= sel_min && abs_pos <= sel_max) screen->cells[idx].bg_color = 0x264F78;
             }
         }
         for (size_t t = 0; t < token_count; t++) {
             uint32_t color = get_token_color(tokens[t].type);
-            for (size_t x = tokens[t].start; x < tokens[t].start + tokens[t].length && x < self->width - line_num_width; x++) {
+            for (size_t x = tokens[t].start; x < tokens[t].start + tokens[t].length && x < content_width; x++) {
                 uint32_t idx = (self->y + i) * screen->width + (self->x + line_num_width + x);
                 screen->cells[idx].fg_color = color;
                 if (tokens[t].type == IM_TOKEN_KEYWORD) screen->cells[idx].style |= IM_STYLE_BOLD;
@@ -228,4 +238,20 @@ im_result_t im_ui_layout_recompute() {
 im_result_t im_ui_notify(const char* message) {
     strncpy(g_notification, message, 127);
     return IM_OK;
+}
+
+static im_ui_component_t* find_component_recursive(im_layout_node_t* node, im_ui_type_t type) {
+    if (node->component && node->component->type == type) return node->component;
+    im_layout_node_t* child = node->children;
+    while (child) {
+        im_ui_component_t* found = find_component_recursive(child, type);
+        if (found) return found;
+        child = child->next;
+    }
+    return NULL;
+}
+
+im_ui_component_t* im_ui_get_component(im_ui_type_t type) {
+    if (!g_root_node) return NULL;
+    return find_component_recursive(g_root_node, type);
 }

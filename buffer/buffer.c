@@ -2,42 +2,202 @@
 #include <stdlib.h>
 #include <string.h>
 
-static im_piece_t* create_piece(im_piece_source_t source, size_t start, size_t length) {
+static size_t count_lines(const char* text, size_t len) {
+    size_t count = 0;
+    for (size_t i = 0; i < len; i++) if (text[i] == '\n') count++;
+    return count;
+}
+
+static void free_piece(im_piece_t* piece) {
+    if (!piece) return;
+    free(piece->relative_line_offsets);
+    free(piece);
+}
+
+static im_piece_t* create_piece(im_piece_source_t source, size_t start, size_t length, im_buffer_t* buf) {
     im_piece_t* piece = (im_piece_t*)malloc(sizeof(im_piece_t));
     if (!piece) return NULL;
     piece->source = source;
     piece->start = start;
     piece->length = length;
+    const char* data = (source == IM_SOURCE_ORIGINAL) ? buf->original_data : buf->add_data;
+
+    size_t count = count_lines(data + start, length);
+    piece->line_count = count;
+    if (count > 0) {
+        piece->relative_line_offsets = (size_t*)malloc(count * sizeof(size_t));
+        if (!piece->relative_line_offsets) { free(piece); return NULL; }
+        size_t idx = 0;
+        for (size_t i = 0; i < length; i++) {
+            if (data[start + i] == '\n') {
+                piece->relative_line_offsets[idx++] = i;
+            }
+        }
+    } else {
+        piece->relative_line_offsets = NULL;
+    }
+
     piece->next = NULL;
     piece->prev = NULL;
     return piece;
 }
 
-static void update_line_indexing(im_buffer_t* buf) {
-    if (!buf->line_offsets) {
-        buf->line_capacity = 1024;
-        buf->line_offsets = (size_t*)malloc(buf->line_capacity * sizeof(size_t));
-        if (!buf->line_offsets) return;
+static im_piece_t* split_piece(im_piece_t* curr, size_t local_offset) {
+    if (local_offset == 0 || local_offset >= curr->length) return NULL;
+
+    im_piece_t* second_half = (im_piece_t*)malloc(sizeof(im_piece_t));
+    if (!second_half) return NULL;
+
+    second_half->source = curr->source;
+    second_half->start = curr->start + local_offset;
+    second_half->length = curr->length - local_offset;
+    second_half->next = NULL;
+    second_half->prev = NULL;
+
+    size_t lines_before = 0;
+    while (lines_before < curr->line_count && curr->relative_line_offsets[lines_before] < local_offset) {
+        lines_before++;
     }
-    buf->line_count = 0;
-    buf->line_offsets[buf->line_count++] = 0;
-    im_piece_t* curr = buf->head;
-    size_t total_offset = 0;
-    while (curr) {
-        const char* data = (curr->source == IM_SOURCE_ORIGINAL) ? buf->original_data : buf->add_data;
-        for (size_t i = 0; i < curr->length; i++) {
-            if (data[curr->start + i] == '\n') {
-                if (buf->line_count >= buf->line_capacity) {
-                    size_t new_cap = buf->line_capacity * 2;
-                    size_t* new_offsets = (size_t*)realloc(buf->line_offsets, new_cap * sizeof(size_t));
-                    if (!new_offsets) return;
-                    buf->line_offsets = new_offsets;
-                    buf->line_capacity = new_cap;
-                }
-                buf->line_offsets[buf->line_count++] = total_offset + i + 1;
+
+    size_t lines_after = curr->line_count - lines_before;
+    second_half->line_count = lines_after;
+    if (lines_after > 0) {
+        second_half->relative_line_offsets = (size_t*)malloc(lines_after * sizeof(size_t));
+        if (!second_half->relative_line_offsets) { free(second_half); return NULL; }
+        for (size_t i = 0; i < lines_after; i++) {
+            second_half->relative_line_offsets[i] = curr->relative_line_offsets[lines_before + i] - local_offset;
+        }
+    } else {
+        second_half->relative_line_offsets = NULL;
+    }
+
+    curr->length = local_offset;
+    curr->line_count = lines_before;
+    if (lines_before == 0) {
+        free(curr->relative_line_offsets);
+        curr->relative_line_offsets = NULL;
+    } else {
+        size_t* new_offsets = (size_t*)realloc(curr->relative_line_offsets, lines_before * sizeof(size_t));
+        if (new_offsets) curr->relative_line_offsets = new_offsets;
+    }
+
+    return second_half;
+}
+
+static void update_line_indexing_insert(im_buffer_t* buf, size_t pos, const char* text, size_t len) {
+    size_t line_idx = 0;
+    if (buf->line_count > 0) {
+        size_t low = 0, high = buf->line_count - 1;
+        while (low <= high) {
+            size_t mid = low + (high - low) / 2;
+            if (buf->line_offsets[mid] > pos) {
+                line_idx = mid;
+                if (mid == 0) break;
+                high = mid - 1;
+            } else {
+                low = mid + 1;
+                line_idx = low;
             }
         }
-        total_offset += curr->length;
+    }
+
+    for (size_t i = line_idx; i < buf->line_count; i++) {
+        buf->line_offsets[i] += len;
+    }
+
+    size_t new_lines_count = 0;
+    for (size_t i = 0; i < len; i++) if (text[i] == '\n') new_lines_count++;
+
+    if (new_lines_count > 0) {
+        if (buf->line_count + new_lines_count > buf->line_capacity) {
+            size_t new_cap = (buf->line_count + new_lines_count) + 4096;
+            size_t* new_offsets = (size_t*)realloc(buf->line_offsets, new_cap * sizeof(size_t));
+            if (new_offsets) {
+                buf->line_offsets = new_offsets;
+                buf->line_capacity = new_cap;
+            }
+        }
+
+        memmove(&buf->line_offsets[line_idx + new_lines_count], &buf->line_offsets[line_idx], (buf->line_count - line_idx) * sizeof(size_t));
+
+        size_t current_new_idx = line_idx;
+        for (size_t i = 0; i < len; i++) {
+            if (text[i] == '\n') {
+                buf->line_offsets[current_new_idx++] = pos + i + 1;
+            }
+        }
+        buf->line_count += new_lines_count;
+    }
+}
+
+static void update_line_indexing_delete(im_buffer_t* buf, size_t pos, size_t len) {
+    if (buf->line_count <= 1) return;
+
+    size_t start_line_idx = buf->line_count;
+    size_t end_line_idx = 0;
+
+    size_t low = 0, high = buf->line_count - 1;
+    while (low <= high) {
+        size_t mid = low + (high - low) / 2;
+        if (buf->line_offsets[mid] > pos) {
+            start_line_idx = mid;
+            if (mid == 0) break;
+            high = mid - 1;
+        } else {
+            low = mid + 1;
+        }
+    }
+
+    low = 0; high = buf->line_count - 1;
+    while (low <= high) {
+        size_t mid = low + (high - low) / 2;
+        if (buf->line_offsets[mid] <= pos + len) {
+            end_line_idx = mid;
+            low = mid + 1;
+        } else {
+            if (mid == 0) break;
+            high = mid - 1;
+        }
+    }
+
+    size_t lines_to_remove = 0;
+    if (end_line_idx >= start_line_idx) {
+        lines_to_remove = end_line_idx - start_line_idx + 1;
+        memmove(&buf->line_offsets[start_line_idx], &buf->line_offsets[end_line_idx + 1], (buf->line_count - (end_line_idx + 1)) * sizeof(size_t));
+        buf->line_count -= lines_to_remove;
+    }
+
+    for (size_t i = start_line_idx; i < buf->line_count; i++) {
+        buf->line_offsets[i] -= len;
+    }
+}
+
+static void full_rebuild_line_indexing(im_buffer_t* buf) {
+    size_t total_lines = 1;
+    im_piece_t* curr = buf->head;
+    while (curr) {
+        total_lines += curr->line_count;
+        curr = (im_piece_t*)curr->next;
+    }
+
+    if (!buf->line_offsets || total_lines > buf->line_capacity) {
+        size_t new_cap = total_lines + 4096;
+        size_t* new_offsets = (size_t*)realloc(buf->line_offsets, new_cap * sizeof(size_t));
+        if (!new_offsets) return;
+        buf->line_offsets = new_offsets;
+        buf->line_capacity = new_cap;
+    }
+
+    buf->line_count = 0;
+    buf->line_offsets[buf->line_count++] = 0;
+
+    curr = buf->head;
+    size_t current_abs_offset = 0;
+    while (curr) {
+        for (size_t i = 0; i < curr->line_count; i++) {
+            buf->line_offsets[buf->line_count++] = current_abs_offset + curr->relative_line_offsets[i] + 1;
+        }
+        current_abs_offset += curr->length;
         curr = (im_piece_t*)curr->next;
     }
 }
@@ -50,23 +210,24 @@ im_result_t im_buffer_init(im_buffer_t* buf, const char* initial_text, size_t si
         if (!buf->original_data) return IM_ERR_NOMEM;
         memcpy(buf->original_data, initial_text, size);
         buf->original_size = size;
-        buf->head = create_piece(IM_SOURCE_ORIGINAL, 0, size);
+        buf->head = create_piece(IM_SOURCE_ORIGINAL, 0, size, buf);
         if (!buf->head) return IM_ERR_NOMEM;
         buf->total_length = size;
     }
     buf->add_capacity = 4096;
     buf->add_data = (char*)malloc(buf->add_capacity);
     if (!buf->add_data) return IM_ERR_NOMEM;
-    update_line_indexing(buf);
+    full_rebuild_line_indexing(buf);
     return IM_OK;
 }
 
 im_result_t im_buffer_destroy(im_buffer_t* buf) {
     if (!buf) return IM_ERR;
+    pthread_mutex_lock(&buf->mutex);
     im_piece_t* curr = buf->head;
     while (curr) {
         im_piece_t* next = (im_piece_t*)curr->next;
-        free(curr);
+        free_piece(curr);
         curr = next;
     }
     free(buf->original_data);
@@ -84,6 +245,7 @@ im_result_t im_buffer_destroy(im_buffer_t* buf) {
         free(buf->redo_stack);
         buf->redo_stack = next;
     }
+    pthread_mutex_unlock(&buf->mutex);
     pthread_mutex_destroy(&buf->mutex);
     return IM_OK;
 }
@@ -175,15 +337,40 @@ static im_result_t im_buffer_insert_internal(im_buffer_t* buf, size_t pos, const
     if (pos > buf->total_length) return IM_ERR_INVALID_ARG;
     if (len == 0) return IM_OK;
     size_t add_start = append_to_add_buffer(buf, text, len);
-    im_piece_t* new_piece = create_piece(IM_SOURCE_ADD, add_start, len);
+
+    // Attempt merge if appending to end of buffer and coming from same add sequence
+    if (pos == buf->total_length && buf->head) {
+        im_piece_t* last = buf->head;
+        while (last->next) last = (im_piece_t*)last->next;
+        if (last->source == IM_SOURCE_ADD && last->start + last->length == add_start) {
+            size_t new_lines = count_lines(text, len);
+            if (new_lines > 0) {
+                size_t* new_offsets = (size_t*)realloc(last->relative_line_offsets, (last->line_count + new_lines) * sizeof(size_t));
+                if (new_offsets) {
+                    last->relative_line_offsets = new_offsets;
+                    size_t idx = 0;
+                    for (size_t i = 0; i < len; i++) {
+                        if (text[i] == '\n') {
+                            last->relative_line_offsets[last->line_count + idx] = last->length + i;
+                            idx++;
+                        }
+                    }
+                    last->line_count += new_lines;
+                }
+            }
+            last->length += len;
+            update_line_indexing_insert(buf, pos, text, len);
+            buf->total_length += len;
+            return IM_OK;
+        }
+    }
+
+    im_piece_t* new_piece = create_piece(IM_SOURCE_ADD, add_start, len, buf);
     if (!new_piece) return IM_ERR_NOMEM;
+
     if (buf->head == NULL) {
         buf->head = new_piece;
-        buf->total_length = len;
-        update_line_indexing(buf);
-        return IM_OK;
-    }
-    if (pos == 0) {
+    } else if (pos == 0) {
         new_piece->next = (struct im_piece_t*)buf->head;
         buf->head->prev = (struct im_piece_t*)new_piece;
         buf->head = new_piece;
@@ -211,9 +398,8 @@ static im_result_t im_buffer_insert_internal(im_buffer_t* buf, size_t pos, const
             if (curr->next) ((im_piece_t*)curr->next)->prev = (struct im_piece_t*)new_piece;
             curr->next = (struct im_piece_t*)new_piece;
         } else {
-            im_piece_t* second_half = create_piece(curr->source, curr->start + local_offset, curr->length - local_offset);
-            if (!second_half) return IM_ERR_NOMEM;
-            curr->length = local_offset;
+            im_piece_t* second_half = split_piece(curr, local_offset);
+            if (!second_half) { free_piece(new_piece); return IM_ERR_NOMEM; }
             second_half->next = curr->next;
             if (curr->next) ((im_piece_t*)curr->next)->prev = (struct im_piece_t*)second_half;
             curr->next = (struct im_piece_t*)new_piece;
@@ -222,14 +408,17 @@ static im_result_t im_buffer_insert_internal(im_buffer_t* buf, size_t pos, const
             second_half->prev = (struct im_piece_t*)new_piece;
         }
     }
+    update_line_indexing_insert(buf, pos, text, len);
     buf->total_length += len;
-    update_line_indexing(buf);
     return IM_OK;
 }
 
 static im_result_t im_buffer_delete_internal(im_buffer_t* buf, size_t pos, size_t len) {
     if (pos + len > buf->total_length) return IM_ERR_INVALID_ARG;
     if (len == 0) return IM_OK;
+
+    update_line_indexing_delete(buf, pos, len);
+
     im_piece_t* curr = buf->head;
     size_t offset = 0;
     while (curr && offset + curr->length <= pos) {
@@ -242,24 +431,66 @@ static im_result_t im_buffer_delete_internal(im_buffer_t* buf, size_t pos, size_
         size_t available = curr->length - local_offset;
         if (available == 0) { curr = (im_piece_t*)curr->next; continue; }
         size_t to_delete = (available < remaining_len) ? available : remaining_len;
+
         if (local_offset == 0 && to_delete == curr->length) {
             im_piece_t* to_free = curr;
             if (to_free->prev) ((im_piece_t*)to_free->prev)->next = to_free->next;
             else buf->head = (im_piece_t*)to_free->next;
             if (to_free->next) ((im_piece_t*)to_free->next)->prev = to_free->prev;
             curr = (im_piece_t*)to_free->next;
-            free(to_free);
+            free_piece(to_free);
         } else if (local_offset == 0) {
+            size_t lines_removed = 0;
+            while (lines_removed < curr->line_count && curr->relative_line_offsets[lines_removed] < to_delete) {
+                lines_removed++;
+            }
+            size_t lines_remaining = curr->line_count - lines_removed;
+            if (lines_remaining > 0) {
+                size_t* new_offsets = (size_t*)malloc(lines_remaining * sizeof(size_t));
+                for (size_t i = 0; i < lines_remaining; i++) {
+                    new_offsets[i] = curr->relative_line_offsets[lines_removed + i] - to_delete;
+                }
+                free(curr->relative_line_offsets);
+                curr->relative_line_offsets = new_offsets;
+            } else {
+                free(curr->relative_line_offsets);
+                curr->relative_line_offsets = NULL;
+            }
+            curr->line_count = lines_remaining;
             curr->start += to_delete;
             curr->length -= to_delete;
             curr = (im_piece_t*)curr->next;
         } else if (local_offset + to_delete == curr->length) {
+            size_t lines_remaining = 0;
+            while (lines_remaining < curr->line_count && curr->relative_line_offsets[lines_remaining] < local_offset) {
+                lines_remaining++;
+            }
+            if (lines_remaining > 0) {
+                size_t* new_offsets = (size_t*)realloc(curr->relative_line_offsets, lines_remaining * sizeof(size_t));
+                if (new_offsets) curr->relative_line_offsets = new_offsets;
+            } else {
+                free(curr->relative_line_offsets);
+                curr->relative_line_offsets = NULL;
+            }
+            curr->line_count = lines_remaining;
             curr->length -= to_delete;
             curr = (im_piece_t*)curr->next;
         } else {
-            im_piece_t* second_half = create_piece(curr->source, curr->start + local_offset + to_delete, curr->length - (local_offset + to_delete));
-            if (!second_half) return IM_ERR_NOMEM;
+            im_piece_t* second_half = split_piece(curr, local_offset + to_delete);
+            size_t lines_remaining = 0;
+            while (lines_remaining < curr->line_count && curr->relative_line_offsets[lines_remaining] < local_offset) {
+                lines_remaining++;
+            }
+            if (lines_remaining > 0) {
+                size_t* new_offsets = (size_t*)realloc(curr->relative_line_offsets, lines_remaining * sizeof(size_t));
+                if (new_offsets) curr->relative_line_offsets = new_offsets;
+            } else {
+                free(curr->relative_line_offsets);
+                curr->relative_line_offsets = NULL;
+            }
+            curr->line_count = lines_remaining;
             curr->length = local_offset;
+
             second_half->next = curr->next;
             if (curr->next) ((im_piece_t*)curr->next)->prev = (struct im_piece_t*)second_half;
             curr->next = (struct im_piece_t*)second_half;
@@ -270,7 +501,6 @@ static im_result_t im_buffer_delete_internal(im_buffer_t* buf, size_t pos, size_
         pos = 0; offset = 0;
     }
     buf->total_length -= len;
-    update_line_indexing(buf);
     return IM_OK;
 }
 
